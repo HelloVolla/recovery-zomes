@@ -1,0 +1,4 @@
+[alias]
+test-feature = "test -p zomes_tests --no-default-features --features"
+test-all = "test -p zomes_tests --all-features"
+test-default = "test -p zomes_tests"
