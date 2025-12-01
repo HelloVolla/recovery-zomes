@@ -13,3 +13,9 @@ holochain = { workspace = true, features = ["sweettest"] }
 tokio = { workspace = true, features = ["full"] }
 hdk = { workspace = true }
 storage_integrity = { workspace = true }
+
+[features]
+default = [
+    "single_agent",
+]
+single_agent = []
