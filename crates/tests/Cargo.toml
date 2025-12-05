@@ -13,9 +13,13 @@ holochain = { workspace = true, features = ["sweettest"] }
 tokio = { workspace = true, features = ["full"] }
 hdk = { workspace = true }
 storage_integrity = { workspace = true }
+shared_types = { workspace = true }
+serde_yaml = "0.9"
 
 [features]
 default = [
     "single_agent",
+    "multi_agent",
 ]
 single_agent = []
+multi_agent = []
