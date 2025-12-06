@@ -3,7 +3,7 @@ use hdk::prelude::*;
 use holochain::conductor::api::CellInfo;
 use holochain::prelude::{AppBundleSource, RoleSettings, InstallAppPayload, DnaModifiersOpt, YamlProperties};
 use holochain::sweettest::{SweetAgents, SweetConductorBatch, SweetConductorConfig, SweetDnaFile, app_bundle_from_dnas};
-use shared_types::{MembraneProofData, Properties};
+use shared_types::{MembraneProofData, Properties, RemoteCallInput};
 
 /// Test that two agents can connect through a DNA with membrane proof validation.
 /// The progenitor (first agent) creates the bundle and generates a membrane proof
@@ -243,4 +243,304 @@ async fn test_membrane_proof_required_for_non_progenitor() {
         .await;
 
     assert!(result.is_err(), "Non-progenitor agent without membrane proof should fail to join");
+}
+
+/// Test that calling a function without a cap grant fails for remote agents
+#[tokio::test(flavor = "multi_thread")]
+async fn test_remote_call_without_cap_grant_fails() {
+    // Set up two separate conductors for two agents
+    let conductors = SweetConductorBatch::from_config(2, SweetConductorConfig::standard()).await;
+
+    // Generate agents for each conductor
+    let agents = [
+        SweetAgents::one(conductors[0].keystore()).await,
+        SweetAgents::one(conductors[1].keystore()).await
+    ];
+
+    // Create the network seed (bundle_id) for the shared DNA
+    let network_seed = "test-no-cap-grant".to_string();
+
+    // Create properties with agent[0] as the progenitor
+    let properties = Properties {
+        progenitor_pub_key: agents[0].clone(),
+    };
+    let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
+
+    // Load the DNA from the bundle path and configure it with network seed
+    let dna = SweetDnaFile::from_bundle(&dna_path())
+        .await
+        .unwrap()
+        .with_network_seed(network_seed.clone())
+        .await;
+
+    // Register and create bundle for agent1 (progenitor - no membrane proof needed)
+    conductors[0].register_dna(dna.clone()).await.unwrap();
+    let bundle = app_bundle_from_dnas(&[dna.clone()], false, None).await;
+    let bundle_bytes = bundle.encode().expect("failed to encode app bundle");
+    let role_name = dna.dna_hash().to_string();
+
+    // Create install payload for agent1 with properties in modifiers
+    let mut roles_settings1 = std::collections::HashMap::new();
+    roles_settings1.insert(
+        role_name.clone().into(),
+        RoleSettings::Provisioned {
+            modifiers: Some(DnaModifiersOpt {
+                properties: Some(yaml_properties.clone()),
+                ..Default::default()
+            }),
+            membrane_proof: None,
+        },
+    );
+
+    conductors[0]
+        .raw_handle()
+        .install_app_bundle(InstallAppPayload {
+            agent_key: Some(agents[0].clone()),
+            source: AppBundleSource::Bytes(bundle_bytes.clone()),
+            installed_app_id: Some("test_app".to_string()),
+            network_seed: None,
+            roles_settings: Some(roles_settings1),
+            ignore_genesis_failure: false,
+            allow_throwaway_random_agent_key: false,
+        })
+        .await
+        .unwrap();
+    conductors[0].enable_app("test_app".to_string()).await.unwrap();
+
+    // Get cell1 from app info
+    let app1_info = conductors[0]
+        .raw_handle()
+        .get_app_info(&"test_app".to_string())
+        .await
+        .unwrap()
+        .unwrap();
+    let cell1_id = match &app1_info.cell_info.values().next().unwrap()[0] {
+        CellInfo::Provisioned(c) => c.cell_id.clone(),
+        _ => panic!("Expected provisioned cell"),
+    };
+
+    // Agent1 generates a membrane proof for agent2
+    let membrane_proof_data = MembraneProofData {
+        bundle_id: network_seed.clone(),
+        for_agent: agents[1].clone(),
+        as_role: 0,
+    };
+    let membrane_proof_bytes: SerializedBytes = conductors[0]
+        .raw_handle()
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "generate_membrane_proof", membrane_proof_data)
+        .await
+        .unwrap();
+    let membrane_proof = MembraneProof::from(membrane_proof_bytes);
+
+    // Register DNA with conductor2 and install for agent2 with membrane proof
+    conductors[1].register_dna(dna.clone()).await.unwrap();
+    let mut roles_settings2 = std::collections::HashMap::new();
+    roles_settings2.insert(
+        role_name.clone().into(),
+        RoleSettings::Provisioned {
+            modifiers: Some(DnaModifiersOpt {
+                properties: Some(yaml_properties.clone()),
+                ..Default::default()
+            }),
+            membrane_proof: Some(membrane_proof),
+        },
+    );
+
+    conductors[1]
+        .raw_handle()
+        .install_app_bundle(InstallAppPayload {
+            agent_key: Some(agents[1].clone()),
+            source: AppBundleSource::Bytes(bundle_bytes.clone()),
+            installed_app_id: Some("test_app".to_string()),
+            network_seed: None,
+            roles_settings: Some(roles_settings2),
+            ignore_genesis_failure: false,
+            allow_throwaway_random_agent_key: false,
+        })
+        .await
+        .unwrap();
+    conductors[1].enable_app("test_app".to_string()).await.unwrap();
+
+    // Get cell2
+    let app2_info = conductors[1]
+        .raw_handle()
+        .get_app_info(&"test_app".to_string())
+        .await
+        .unwrap()
+        .unwrap();
+    let cell2_id = match &app2_info.cell_info.values().next().unwrap()[0] {
+        CellInfo::Provisioned(c) => c.cell_id.clone(),
+        _ => panic!("Expected provisioned cell"),
+    };
+
+    // Exchange peer info so the agents can find each other
+    conductors.exchange_peer_info().await;
+
+    // Agent2 tries to call hello_world on agent1 (should fail - no cap grant)
+    let remote_call_input = RemoteCallInput {
+        target_agent: agents[0].clone(),
+        zome_name: "storage".to_string(),
+        fn_name: "hello_world".to_string(),
+        payload: ExternIO::encode("Remote").unwrap(),
+        cap_secret: None,
+    };
+
+    let result: Result<ExternIO, _> = conductors[1]
+        .raw_handle()
+        .easy_call_zome(&agents[1], None, cell2_id.clone(), ZomeName::from("storage"), "call_remote_zome", remote_call_input)
+        .await;
+
+    // The call should fail because hello_world has no cap grant for remote callers
+    assert!(result.is_err(), "Remote call to hello_world should fail due to missing cap grant");
+}
+
+/// Test that calling a function with an unrestricted cap grant succeeds for remote agents
+#[tokio::test(flavor = "multi_thread")]
+async fn test_remote_call_with_unrestricted_cap_grant_succeeds() {
+    // Set up two separate conductors for two agents
+    let conductors = SweetConductorBatch::from_config(2, SweetConductorConfig::standard()).await;
+
+    // Generate agents for each conductor
+    let agents = [
+        SweetAgents::one(conductors[0].keystore()).await,
+        SweetAgents::one(conductors[1].keystore()).await
+    ];
+
+    // Create the network seed (bundle_id) for the shared DNA
+    let network_seed = "test-unrestricted-cap-grant".to_string();
+
+    // Create properties with agent[0] as the progenitor
+    let properties = Properties {
+        progenitor_pub_key: agents[0].clone(),
+    };
+    let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
+
+    // Load the DNA from the bundle path and configure it with network seed
+    let dna = SweetDnaFile::from_bundle(&dna_path())
+        .await
+        .unwrap()
+        .with_network_seed(network_seed.clone())
+        .await;
+
+    // Register and create bundle for agent1 (progenitor - no membrane proof needed)
+    conductors[0].register_dna(dna.clone()).await.unwrap();
+    let bundle = app_bundle_from_dnas(&[dna.clone()], false, None).await;
+    let bundle_bytes = bundle.encode().expect("failed to encode app bundle");
+    let role_name = dna.dna_hash().to_string();
+
+    // Create install payload for agent1 with properties in modifiers
+    let mut roles_settings1 = std::collections::HashMap::new();
+    roles_settings1.insert(
+        role_name.clone().into(),
+        RoleSettings::Provisioned {
+            modifiers: Some(DnaModifiersOpt {
+                properties: Some(yaml_properties.clone()),
+                ..Default::default()
+            }),
+            membrane_proof: None,
+        },
+    );
+
+    conductors[0]
+        .raw_handle()
+        .install_app_bundle(InstallAppPayload {
+            agent_key: Some(agents[0].clone()),
+            source: AppBundleSource::Bytes(bundle_bytes.clone()),
+            installed_app_id: Some("test_app".to_string()),
+            network_seed: None,
+            roles_settings: Some(roles_settings1),
+            ignore_genesis_failure: false,
+            allow_throwaway_random_agent_key: false,
+        })
+        .await
+        .unwrap();
+    conductors[0].enable_app("test_app".to_string()).await.unwrap();
+
+    // Get cell1 from app info
+    let app1_info = conductors[0]
+        .raw_handle()
+        .get_app_info(&"test_app".to_string())
+        .await
+        .unwrap()
+        .unwrap();
+    let cell1_id = match &app1_info.cell_info.values().next().unwrap()[0] {
+        CellInfo::Provisioned(c) => c.cell_id.clone(),
+        _ => panic!("Expected provisioned cell"),
+    };
+
+    // Agent1 generates a membrane proof for agent2
+    let membrane_proof_data = MembraneProofData {
+        bundle_id: network_seed.clone(),
+        for_agent: agents[1].clone(),
+        as_role: 0,
+    };
+    let membrane_proof_bytes: SerializedBytes = conductors[0]
+        .raw_handle()
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "generate_membrane_proof", membrane_proof_data)
+        .await
+        .unwrap();
+    let membrane_proof = MembraneProof::from(membrane_proof_bytes);
+
+    // Register DNA with conductor2 and install for agent2 with membrane proof
+    conductors[1].register_dna(dna.clone()).await.unwrap();
+    let mut roles_settings2 = std::collections::HashMap::new();
+    roles_settings2.insert(
+        role_name.clone().into(),
+        RoleSettings::Provisioned {
+            modifiers: Some(DnaModifiersOpt {
+                properties: Some(yaml_properties.clone()),
+                ..Default::default()
+            }),
+            membrane_proof: Some(membrane_proof),
+        },
+    );
+
+    conductors[1]
+        .raw_handle()
+        .install_app_bundle(InstallAppPayload {
+            agent_key: Some(agents[1].clone()),
+            source: AppBundleSource::Bytes(bundle_bytes.clone()),
+            installed_app_id: Some("test_app".to_string()),
+            network_seed: None,
+            roles_settings: Some(roles_settings2),
+            ignore_genesis_failure: false,
+            allow_throwaway_random_agent_key: false,
+        })
+        .await
+        .unwrap();
+    conductors[1].enable_app("test_app".to_string()).await.unwrap();
+
+    // Get cell2
+    let app2_info = conductors[1]
+        .raw_handle()
+        .get_app_info(&"test_app".to_string())
+        .await
+        .unwrap()
+        .unwrap();
+    let cell2_id = match &app2_info.cell_info.values().next().unwrap()[0] {
+        CellInfo::Provisioned(c) => c.cell_id.clone(),
+        _ => panic!("Expected provisioned cell"),
+    };
+
+    // Exchange peer info so the agents can find each other
+    conductors.exchange_peer_info().await;
+
+    // Agent2 tries to call ping on agent1 (should succeed - unrestricted cap grant)
+    let remote_call_input = RemoteCallInput {
+        target_agent: agents[0].clone(),
+        zome_name: "storage".to_string(),
+        fn_name: "ping".to_string(),
+        payload: ExternIO::encode(()).unwrap(),
+        cap_secret: None,
+    };
+
+    let result: ExternIO = conductors[1]
+        .raw_handle()
+        .easy_call_zome(&agents[1], None, cell2_id.clone(), ZomeName::from("storage"), "call_remote_zome", remote_call_input)
+        .await
+        .expect("Remote call to ping should succeed with unrestricted cap grant");
+
+    // The call should succeed and return "pong"
+    let pong: String = result.decode().expect("Failed to decode ping response");
+    assert_eq!(pong, "pong", "Ping should return 'pong'");
 }
