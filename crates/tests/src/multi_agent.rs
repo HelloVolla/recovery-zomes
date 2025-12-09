@@ -93,7 +93,6 @@ async fn test_multi_agent_membrane_proof_connection() {
     let membrane_proof_data = MembraneProofData {
         bundle_id: network_seed.clone(),
         for_agent: agents[1].clone(),
-        as_role: 0,
     };
     let membrane_proof_bytes: SerializedBytes = conductors[0]
         .raw_handle()
@@ -323,7 +322,6 @@ async fn test_remote_call_without_cap_grant_fails() {
     let membrane_proof_data = MembraneProofData {
         bundle_id: network_seed.clone(),
         for_agent: agents[1].clone(),
-        as_role: 0,
     };
     let membrane_proof_bytes: SerializedBytes = conductors[0]
         .raw_handle()
@@ -472,7 +470,6 @@ async fn test_remote_call_with_unrestricted_cap_grant_succeeds() {
     let membrane_proof_data = MembraneProofData {
         bundle_id: network_seed.clone(),
         for_agent: agents[1].clone(),
-        as_role: 0,
     };
     let membrane_proof_bytes: SerializedBytes = conductors[0]
         .raw_handle()
