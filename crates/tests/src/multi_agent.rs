@@ -541,3 +541,199 @@ async fn test_remote_call_with_unrestricted_cap_grant_succeeds() {
     let pong: String = result.decode().expect("Failed to decode ping response");
     assert_eq!(pong, "pong", "Ping should return 'pong'");
 }
+
+/// Test that agent join can be verified through profile creation.
+///
+/// This test validates the agent join verification mechanism:
+/// 1. Agent1 (progenitor) creates a storage bundle
+/// 2. Agent1 generates an invite code for agent2
+/// 3. Agent2 joins with the invite code
+/// 4. Agent2 creates a profile with a nickname
+/// 5. Agent1 queries for agents with profiles
+/// 6. Agent1 verifies agent2's profile exists
+#[tokio::test(flavor = "multi_thread")]
+async fn test_agent_join_verification_via_profile() {
+    use std::collections::BTreeMap;
+
+    // Profile struct matching profiles zome
+    #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+    struct Profile {
+        nickname: String,
+        fields: BTreeMap<String, String>,
+    }
+
+    // ZomeFnInput wrapper for profiles zome
+    #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+    struct ZomeFnInput<T> {
+        input: T,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        local: Option<bool>,
+    }
+
+    // Set up two separate conductors for two agents
+    let conductors = SweetConductorBatch::from_config(2, SweetConductorConfig::standard()).await;
+
+    // Generate agents for each conductor
+    let agents = [
+        SweetAgents::one(conductors[0].keystore()).await,
+        SweetAgents::one(conductors[1].keystore()).await
+    ];
+
+    // Create the network seed (bundle_id) for the shared DNA
+    let network_seed = "test-profile-verification".to_string();
+
+    // Create properties with agent[0] as the progenitor
+    let properties = Properties {
+        progenitor_pub_key: agents[0].clone(),
+    };
+    let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
+
+    // Load the DNA from the bundle path and configure it with network seed
+    let dna = SweetDnaFile::from_bundle(&dna_path())
+        .await
+        .unwrap()
+        .with_network_seed(network_seed.clone())
+        .await;
+
+    // Register and create bundle for agent1 (progenitor - no membrane proof needed)
+    conductors[0].register_dna(dna.clone()).await.unwrap();
+    let bundle = app_bundle_from_dnas(&[dna.clone()], false, None).await;
+    let bundle_bytes = bundle.encode().expect("failed to encode app bundle");
+    let role_name = dna.dna_hash().to_string();
+
+    // Create install payload for agent1 with properties in modifiers
+    let mut roles_settings1 = std::collections::HashMap::new();
+    roles_settings1.insert(
+        role_name.clone().into(),
+        RoleSettings::Provisioned {
+            modifiers: Some(DnaModifiersOpt {
+                properties: Some(yaml_properties.clone()),
+                ..Default::default()
+            }),
+            membrane_proof: None,
+        },
+    );
+
+    conductors[0]
+        .raw_handle()
+        .install_app_bundle(InstallAppPayload {
+            agent_key: Some(agents[0].clone()),
+            source: AppBundleSource::Bytes(bundle_bytes.clone()),
+            installed_app_id: Some("test_app".to_string()),
+            network_seed: None,
+            roles_settings: Some(roles_settings1),
+            ignore_genesis_failure: false,
+            allow_throwaway_random_agent_key: false,
+        })
+        .await
+        .unwrap();
+    conductors[0].enable_app("test_app".to_string()).await.unwrap();
+
+    // Get cell1 from app info
+    let app1_info = conductors[0]
+        .raw_handle()
+        .get_app_info(&"test_app".to_string())
+        .await
+        .unwrap()
+        .unwrap();
+    let cell1_id = match &app1_info.cell_info.values().next().unwrap()[0] {
+        CellInfo::Provisioned(c) => c.cell_id.clone(),
+        _ => panic!("Expected provisioned cell"),
+    };
+
+    // Agent1 generates a membrane proof for agent2
+    let membrane_proof_data = MembraneProofData {
+        bundle_id: network_seed.clone(),
+        for_agent: agents[1].clone(),
+    };
+    let membrane_proof_bytes: SerializedBytes = conductors[0]
+        .raw_handle()
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "generate_membrane_proof", membrane_proof_data)
+        .await
+        .unwrap();
+    let membrane_proof = MembraneProof::from(membrane_proof_bytes);
+
+    // Register DNA with conductor2 and install for agent2 with membrane proof
+    conductors[1].register_dna(dna.clone()).await.unwrap();
+    let mut roles_settings2 = std::collections::HashMap::new();
+    roles_settings2.insert(
+        role_name.clone().into(),
+        RoleSettings::Provisioned {
+            modifiers: Some(DnaModifiersOpt {
+                properties: Some(yaml_properties.clone()),
+                ..Default::default()
+            }),
+            membrane_proof: Some(membrane_proof),
+        },
+    );
+
+    conductors[1]
+        .raw_handle()
+        .install_app_bundle(InstallAppPayload {
+            agent_key: Some(agents[1].clone()),
+            source: AppBundleSource::Bytes(bundle_bytes.clone()),
+            installed_app_id: Some("test_app".to_string()),
+            network_seed: None,
+            roles_settings: Some(roles_settings2),
+            ignore_genesis_failure: false,
+            allow_throwaway_random_agent_key: false,
+        })
+        .await
+        .unwrap();
+    conductors[1].enable_app("test_app".to_string()).await.unwrap();
+
+    // Get cell2
+    let app2_info = conductors[1]
+        .raw_handle()
+        .get_app_info(&"test_app".to_string())
+        .await
+        .unwrap()
+        .unwrap();
+    let cell2_id = match &app2_info.cell_info.values().next().unwrap()[0] {
+        CellInfo::Provisioned(c) => c.cell_id.clone(),
+        _ => panic!("Expected provisioned cell"),
+    };
+
+    // Exchange peer info so the agents can find each other
+    conductors.exchange_peer_info().await;
+
+    // Agent2 creates a profile to indicate they have joined
+    let profile = Profile {
+        nickname: "Agent2JoinedSuccessfully".to_string(),
+        fields: BTreeMap::new(),
+    };
+
+    let _profile_record: Record = conductors[1]
+        .raw_handle()
+        .easy_call_zome(&agents[1], None, cell2_id.clone(), ZomeName::from("profiles"), "create_profile", profile)
+        .await
+        .expect("Agent2 should be able to create a profile");
+
+    // Give some time for gossip to propagate
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+
+    // Agent1 queries for all agents with profiles
+    let input = ZomeFnInput::<()> { input: (), local: None };
+    let agents_with_profiles: Vec<AgentPubKey> = conductors[0]
+        .raw_handle()
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("profiles"), "get_agents_with_profile", input)
+        .await
+        .expect("Should be able to get agents with profile");
+
+    // Verify agent2 is in the list
+    assert!(
+        agents_with_profiles.contains(&agents[1]),
+        "Agent2 should appear in the list of agents with profiles"
+    );
+
+    // Agent1 directly queries for agent2's profile
+    let input = ZomeFnInput { input: agents[1].clone(), local: None };
+    let agent2_profile: Option<Record> = conductors[0]
+        .raw_handle()
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("profiles"), "get_agent_profile", input)
+        .await
+        .expect("Should be able to get agent profile");
+
+    // Verify the profile exists
+    assert!(agent2_profile.is_some(), "Agent2's profile should be found - this confirms they successfully joined");
+}
