@@ -191,3 +191,60 @@ async fn test_get_all_storage_entries() {
     assert!(storage_entries.iter().any(|e| e.label == "file1.txt"), "Should contain file1.txt");
     assert!(storage_entries.iter().any(|e| e.label == "file2.bin"), "Should contain file2.bin");
 }
+
+/// Test file upload and download roundtrip using get_file
+#[tokio::test(flavor = "multi_thread")]
+async fn test_file_upload_download_roundtrip() {
+    // Set up conductor
+    let mut conductor = SweetConductor::from_standard_config().await;
+
+    // Load DNA from bundle
+    let dna = SweetDnaFile::from_bundle(&dna_path()).await.unwrap();
+
+    // Install app
+    let app = conductor.setup_app("test_app", &[dna]).await.unwrap();
+    let cell = &app.cells()[0];
+
+    // Create test data - a larger file split across multiple chunks
+    let test_data: Vec<u8> = (0..255u8).cycle().take(1500).collect();
+
+    // Create chunks from the test data (simulating chunking like upload_file does)
+    let chunk_size = 500;
+    let mut chunk_entry_hashes: Vec<EntryHash> = Vec::new();
+
+    for chunk_data in test_data.chunks(chunk_size) {
+        let chunk_record: Record = conductor
+            .call(&cell.zome("storage"), "create_chunk_from_data", chunk_data.to_vec())
+            .await;
+        chunk_entry_hashes.push(chunk_record.action().entry_hash().unwrap().clone());
+    }
+
+    // Create storage entry with chunk references
+    let storage_entry = StorageEntry {
+        label: "test_roundtrip.bin".to_string(),
+        content_type: "application/octet-stream".to_string(),
+        size: test_data.len(),
+        timestamp: Timestamp::now(),
+        custom_metadata: None,
+        chunk_hashes: chunk_entry_hashes,
+    };
+
+    let storage_record: Record = conductor
+        .call(&cell.zome("storage"), "create_storage_entry", storage_entry)
+        .await;
+
+    let storage_entry_hash = storage_record.action_address().clone();
+
+    // Now use get_file to retrieve the complete file data
+    let retrieved_data: Option<Vec<u8>> = conductor
+        .call(&cell.zome("storage"), "get_file", storage_entry_hash)
+        .await;
+
+    // Verify the retrieved data matches the original
+    assert!(retrieved_data.is_some(), "Should retrieve file data");
+    let retrieved = retrieved_data.unwrap();
+    assert_eq!(retrieved.len(), test_data.len(), "Data length should match");
+    assert_eq!(retrieved, test_data, "Data content should match exactly");
+
+    println!("Successfully uploaded and downloaded {} bytes across 3 chunks", test_data.len());
+}
