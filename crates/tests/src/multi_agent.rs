@@ -3,7 +3,38 @@ use hdk::prelude::*;
 use holochain::conductor::api::CellInfo;
 use holochain::prelude::{AppBundleSource, RoleSettings, InstallAppPayload, DnaModifiersOpt, YamlProperties};
 use holochain::sweettest::{SweetAgents, SweetConductorBatch, SweetConductorConfig, SweetDnaFile, app_bundle_from_dnas};
-use shared_types::{MembraneProofData, Properties, RemoteCallInput};
+use shared_types::{MembraneProofData, MembraneProofEnvelope, Properties, RemoteCallInput};
+use ed25519_dalek::{SigningKey, Signer};
+use rand::rngs::OsRng;
+
+/// Helper function to create a membrane proof with external signing
+fn create_signed_membrane_proof(
+    signing_key: &SigningKey,
+    bundle_id: String,
+    for_agent: AgentPubKey,
+) -> MembraneProof {
+    let membrane_proof_data = MembraneProofData {
+        bundle_id,
+        for_agent,
+    };
+
+    // Serialize the data the same way Holochain does
+    let data_bytes = holochain_serialized_bytes::encode(&membrane_proof_data)
+        .expect("Failed to serialize membrane proof data");
+
+    // Sign the serialized data
+    let signature = signing_key.sign(&data_bytes);
+
+    // Create the envelope
+    let envelope = MembraneProofEnvelope {
+        signature: Signature(signature.to_bytes()),
+        data: membrane_proof_data,
+    };
+
+    // Serialize to MembraneProof
+    let proof_bytes = SerializedBytes::try_from(envelope).expect("Failed to serialize envelope");
+    MembraneProof::from(proof_bytes)
+}
 
 /// Test that two agents can connect through a DNA with membrane proof validation.
 /// The progenitor (first agent) creates the bundle and generates a membrane proof
@@ -22,9 +53,14 @@ async fn test_multi_agent_membrane_proof_connection() {
     // Create the network seed (bundle_id) for the shared DNA
     let network_seed = "test-bundle-12345".to_string();
 
-    // Create properties with agent[0] as the progenitor
+    // Generate an ed25519 signing keypair for membrane proof signing
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let signing_pub_key = signing_key.verifying_key().to_bytes().to_vec();
+
+    // Create properties with agent[0] as the progenitor and the signing key
     let properties = Properties {
         progenitor_pub_key: agents[0].clone(),
+        signing_pub_key: signing_pub_key.clone(),
     };
     let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
 
@@ -87,17 +123,12 @@ async fn test_multi_agent_membrane_proof_connection() {
         .unwrap();
     assert!(hello_response.contains("Agent1"));
 
-    // Agent1 generates a membrane proof for agent2
-    let membrane_proof_data = MembraneProofData {
-        bundle_id: network_seed.clone(),
-        for_agent: agents[1].clone(),
-    };
-    let membrane_proof_bytes: SerializedBytes = conductors[0]
-        .raw_handle()
-        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "generate_membrane_proof", membrane_proof_data)
-        .await
-        .unwrap();
-    let membrane_proof = MembraneProof::from(membrane_proof_bytes);
+    // Create membrane proof for agent2 using external signing
+    let membrane_proof = create_signed_membrane_proof(
+        &signing_key,
+        network_seed.clone(),
+        agents[1].clone(),
+    );
 
     // Install for agent2 with membrane proof
     let mut roles_settings2 = std::collections::HashMap::new();
@@ -164,8 +195,14 @@ async fn test_membrane_proof_required_for_non_progenitor() {
 
     // Create the network seed and properties with agent[0] as the progenitor
     let network_seed = "test-bundle-rejection-test".to_string();
+
+    // Generate an ed25519 signing keypair
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let signing_pub_key = signing_key.verifying_key().to_bytes().to_vec();
+
     let properties = Properties {
         progenitor_pub_key: agents[0].clone(),
+        signing_pub_key: signing_pub_key.clone(),
     };
     let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
 
@@ -251,9 +288,14 @@ async fn test_remote_call_without_cap_grant_fails() {
     // Create the network seed (bundle_id) for the shared DNA
     let network_seed = "test-no-cap-grant".to_string();
 
-    // Create properties with agent[0] as the progenitor
+    // Generate an ed25519 signing keypair
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let signing_pub_key = signing_key.verifying_key().to_bytes().to_vec();
+
+    // Create properties with agent[0] as the progenitor and the signing key
     let properties = Properties {
         progenitor_pub_key: agents[0].clone(),
+        signing_pub_key: signing_pub_key.clone(),
     };
     let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
 
@@ -308,17 +350,12 @@ async fn test_remote_call_without_cap_grant_fails() {
         _ => panic!("Expected provisioned cell"),
     };
 
-    // Agent1 generates a membrane proof for agent2
-    let membrane_proof_data = MembraneProofData {
-        bundle_id: network_seed.clone(),
-        for_agent: agents[1].clone(),
-    };
-    let membrane_proof_bytes: SerializedBytes = conductors[0]
-        .raw_handle()
-        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "generate_membrane_proof", membrane_proof_data)
-        .await
-        .unwrap();
-    let membrane_proof = MembraneProof::from(membrane_proof_bytes);
+    // Create membrane proof for agent2 using external signing
+    let membrane_proof = create_signed_membrane_proof(
+        &signing_key,
+        network_seed.clone(),
+        agents[1].clone(),
+    );
 
     // Install for agent2 with membrane proof
     let mut roles_settings2 = std::collections::HashMap::new();
@@ -395,9 +432,14 @@ async fn test_remote_call_with_unrestricted_cap_grant_succeeds() {
     // Create the network seed (bundle_id) for the shared DNA
     let network_seed = "test-unrestricted-cap-grant".to_string();
 
-    // Create properties with agent[0] as the progenitor
+    // Generate an ed25519 signing keypair
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let signing_pub_key = signing_key.verifying_key().to_bytes().to_vec();
+
+    // Create properties with agent[0] as the progenitor and the signing key
     let properties = Properties {
         progenitor_pub_key: agents[0].clone(),
+        signing_pub_key: signing_pub_key.clone(),
     };
     let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
 
@@ -452,17 +494,12 @@ async fn test_remote_call_with_unrestricted_cap_grant_succeeds() {
         _ => panic!("Expected provisioned cell"),
     };
 
-    // Agent1 generates a membrane proof for agent2
-    let membrane_proof_data = MembraneProofData {
-        bundle_id: network_seed.clone(),
-        for_agent: agents[1].clone(),
-    };
-    let membrane_proof_bytes: SerializedBytes = conductors[0]
-        .raw_handle()
-        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "generate_membrane_proof", membrane_proof_data)
-        .await
-        .unwrap();
-    let membrane_proof = MembraneProof::from(membrane_proof_bytes);
+    // Create membrane proof for agent2 using external signing
+    let membrane_proof = create_signed_membrane_proof(
+        &signing_key,
+        network_seed.clone(),
+        agents[1].clone(),
+    );
 
     // Install for agent2 with membrane proof
     let mut roles_settings2 = std::collections::HashMap::new();
@@ -566,9 +603,14 @@ async fn test_agent_join_verification_via_profile() {
     // Create the network seed (bundle_id) for the shared DNA
     let network_seed = "test-profile-verification".to_string();
 
-    // Create properties with agent[0] as the progenitor
+    // Generate an ed25519 signing keypair
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let signing_pub_key = signing_key.verifying_key().to_bytes().to_vec();
+
+    // Create properties with agent[0] as the progenitor and the signing key
     let properties = Properties {
         progenitor_pub_key: agents[0].clone(),
+        signing_pub_key: signing_pub_key.clone(),
     };
     let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
 
@@ -623,17 +665,12 @@ async fn test_agent_join_verification_via_profile() {
         _ => panic!("Expected provisioned cell"),
     };
 
-    // Agent1 generates a membrane proof for agent2
-    let membrane_proof_data = MembraneProofData {
-        bundle_id: network_seed.clone(),
-        for_agent: agents[1].clone(),
-    };
-    let membrane_proof_bytes: SerializedBytes = conductors[0]
-        .raw_handle()
-        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "generate_membrane_proof", membrane_proof_data)
-        .await
-        .unwrap();
-    let membrane_proof = MembraneProof::from(membrane_proof_bytes);
+    // Create membrane proof for agent2 using external signing
+    let membrane_proof = create_signed_membrane_proof(
+        &signing_key,
+        network_seed.clone(),
+        agents[1].clone(),
+    );
 
     // Install for agent2 with membrane proof
     let mut roles_settings2 = std::collections::HashMap::new();
