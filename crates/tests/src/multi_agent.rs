@@ -35,10 +35,9 @@ async fn test_multi_agent_membrane_proof_connection() {
         .with_network_seed(network_seed.clone())
         .await;
 
-    // Register and create bundle for agent1 (progenitor - no membrane proof needed)
-    conductors[0].register_dna(dna.clone()).await.unwrap();
+    // Create bundle for agent1 (progenitor - no membrane proof needed)
     let bundle = app_bundle_from_dnas(&[dna.clone()], false, None).await;
-    let bundle_bytes = bundle.encode().expect("failed to encode app bundle");
+    let bundle_bytes = bundle.pack().expect("failed to encode app bundle");
     let role_name = dna.dna_hash().to_string();
 
     // Create install payload for agent1 with properties in modifiers
@@ -63,7 +62,6 @@ async fn test_multi_agent_membrane_proof_connection() {
             network_seed: None,
             roles_settings: Some(roles_settings1),
             ignore_genesis_failure: false,
-            allow_throwaway_random_agent_key: false,
         })
         .await
         .unwrap();
@@ -101,8 +99,7 @@ async fn test_multi_agent_membrane_proof_connection() {
         .unwrap();
     let membrane_proof = MembraneProof::from(membrane_proof_bytes);
 
-    // Register DNA with conductor2 and install for agent2 with membrane proof
-    conductors[1].register_dna(dna.clone()).await.unwrap();
+    // Install for agent2 with membrane proof
     let mut roles_settings2 = std::collections::HashMap::new();
     roles_settings2.insert(
         role_name.clone().into(),
@@ -124,7 +121,6 @@ async fn test_multi_agent_membrane_proof_connection() {
             network_seed: None,
             roles_settings: Some(roles_settings2),
             ignore_genesis_failure: false,
-            allow_throwaway_random_agent_key: false,
         })
         .await
         .unwrap();
@@ -180,10 +176,9 @@ async fn test_membrane_proof_required_for_non_progenitor() {
         .with_network_seed(network_seed.clone())
         .await;
 
-    // Register and create bundle
-    conductors[0].register_dna(dna.clone()).await.unwrap();
+    // Create bundle
     let bundle = app_bundle_from_dnas(&[dna.clone()], false, None).await;
-    let bundle_bytes = bundle.encode().expect("failed to encode app bundle");
+    let bundle_bytes = bundle.pack().expect("failed to encode app bundle");
     let role_name = dna.dna_hash().to_string();
 
     // Install for agent1 (progenitor)
@@ -208,14 +203,12 @@ async fn test_membrane_proof_required_for_non_progenitor() {
             network_seed: None,
             roles_settings: Some(roles_settings1),
             ignore_genesis_failure: false,
-            allow_throwaway_random_agent_key: false,
         })
         .await
         .unwrap();
     conductors[0].enable_app("test_app".to_string()).await.unwrap();
 
     // Agent2 tries to install WITHOUT a membrane proof (should fail)
-    conductors[1].register_dna(dna.clone()).await.unwrap();
     let mut roles_settings2 = std::collections::HashMap::new();
     roles_settings2.insert(
         role_name.clone().into(),
@@ -237,7 +230,6 @@ async fn test_membrane_proof_required_for_non_progenitor() {
             network_seed: None,
             roles_settings: Some(roles_settings2),
             ignore_genesis_failure: false,
-            allow_throwaway_random_agent_key: false,
         })
         .await;
 
@@ -272,10 +264,9 @@ async fn test_remote_call_without_cap_grant_fails() {
         .with_network_seed(network_seed.clone())
         .await;
 
-    // Register and create bundle for agent1 (progenitor - no membrane proof needed)
-    conductors[0].register_dna(dna.clone()).await.unwrap();
+    // Create bundle for agent1 (progenitor - no membrane proof needed)
     let bundle = app_bundle_from_dnas(&[dna.clone()], false, None).await;
-    let bundle_bytes = bundle.encode().expect("failed to encode app bundle");
+    let bundle_bytes = bundle.pack().expect("failed to encode app bundle");
     let role_name = dna.dna_hash().to_string();
 
     // Create install payload for agent1 with properties in modifiers
@@ -300,7 +291,6 @@ async fn test_remote_call_without_cap_grant_fails() {
             network_seed: None,
             roles_settings: Some(roles_settings1),
             ignore_genesis_failure: false,
-            allow_throwaway_random_agent_key: false,
         })
         .await
         .unwrap();
@@ -330,8 +320,7 @@ async fn test_remote_call_without_cap_grant_fails() {
         .unwrap();
     let membrane_proof = MembraneProof::from(membrane_proof_bytes);
 
-    // Register DNA with conductor2 and install for agent2 with membrane proof
-    conductors[1].register_dna(dna.clone()).await.unwrap();
+    // Install for agent2 with membrane proof
     let mut roles_settings2 = std::collections::HashMap::new();
     roles_settings2.insert(
         role_name.clone().into(),
@@ -353,7 +342,6 @@ async fn test_remote_call_without_cap_grant_fails() {
             network_seed: None,
             roles_settings: Some(roles_settings2),
             ignore_genesis_failure: false,
-            allow_throwaway_random_agent_key: false,
         })
         .await
         .unwrap();
@@ -420,10 +408,9 @@ async fn test_remote_call_with_unrestricted_cap_grant_succeeds() {
         .with_network_seed(network_seed.clone())
         .await;
 
-    // Register and create bundle for agent1 (progenitor - no membrane proof needed)
-    conductors[0].register_dna(dna.clone()).await.unwrap();
+    // Create bundle for agent1 (progenitor - no membrane proof needed)
     let bundle = app_bundle_from_dnas(&[dna.clone()], false, None).await;
-    let bundle_bytes = bundle.encode().expect("failed to encode app bundle");
+    let bundle_bytes = bundle.pack().expect("failed to encode app bundle");
     let role_name = dna.dna_hash().to_string();
 
     // Create install payload for agent1 with properties in modifiers
@@ -448,7 +435,6 @@ async fn test_remote_call_with_unrestricted_cap_grant_succeeds() {
             network_seed: None,
             roles_settings: Some(roles_settings1),
             ignore_genesis_failure: false,
-            allow_throwaway_random_agent_key: false,
         })
         .await
         .unwrap();
@@ -478,8 +464,7 @@ async fn test_remote_call_with_unrestricted_cap_grant_succeeds() {
         .unwrap();
     let membrane_proof = MembraneProof::from(membrane_proof_bytes);
 
-    // Register DNA with conductor2 and install for agent2 with membrane proof
-    conductors[1].register_dna(dna.clone()).await.unwrap();
+    // Install for agent2 with membrane proof
     let mut roles_settings2 = std::collections::HashMap::new();
     roles_settings2.insert(
         role_name.clone().into(),
@@ -501,7 +486,6 @@ async fn test_remote_call_with_unrestricted_cap_grant_succeeds() {
             network_seed: None,
             roles_settings: Some(roles_settings2),
             ignore_genesis_failure: false,
-            allow_throwaway_random_agent_key: false,
         })
         .await
         .unwrap();
@@ -595,10 +579,9 @@ async fn test_agent_join_verification_via_profile() {
         .with_network_seed(network_seed.clone())
         .await;
 
-    // Register and create bundle for agent1 (progenitor - no membrane proof needed)
-    conductors[0].register_dna(dna.clone()).await.unwrap();
+    // Create bundle for agent1 (progenitor - no membrane proof needed)
     let bundle = app_bundle_from_dnas(&[dna.clone()], false, None).await;
-    let bundle_bytes = bundle.encode().expect("failed to encode app bundle");
+    let bundle_bytes = bundle.pack().expect("failed to encode app bundle");
     let role_name = dna.dna_hash().to_string();
 
     // Create install payload for agent1 with properties in modifiers
@@ -623,7 +606,6 @@ async fn test_agent_join_verification_via_profile() {
             network_seed: None,
             roles_settings: Some(roles_settings1),
             ignore_genesis_failure: false,
-            allow_throwaway_random_agent_key: false,
         })
         .await
         .unwrap();
@@ -653,8 +635,7 @@ async fn test_agent_join_verification_via_profile() {
         .unwrap();
     let membrane_proof = MembraneProof::from(membrane_proof_bytes);
 
-    // Register DNA with conductor2 and install for agent2 with membrane proof
-    conductors[1].register_dna(dna.clone()).await.unwrap();
+    // Install for agent2 with membrane proof
     let mut roles_settings2 = std::collections::HashMap::new();
     roles_settings2.insert(
         role_name.clone().into(),
@@ -676,7 +657,6 @@ async fn test_agent_join_verification_via_profile() {
             network_seed: None,
             roles_settings: Some(roles_settings2),
             ignore_genesis_failure: false,
-            allow_throwaway_random_agent_key: false,
         })
         .await
         .unwrap();
