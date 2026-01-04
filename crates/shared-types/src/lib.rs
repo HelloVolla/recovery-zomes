@@ -7,3 +7,5 @@ pub mod properties;
 pub use properties::*;
 pub mod remote;
 pub use remote::*;
+pub mod signing_key;
+pub use signing_key::*;

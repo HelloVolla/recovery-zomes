@@ -8,10 +8,13 @@ use ed25519_dalek::{SigningKey, Signer};
 use rand::rngs::OsRng;
 
 /// Helper function to create a membrane proof with external signing
+/// Note: For full integration tests, the signing_key_action_hash should be obtained
+/// by committing a SigningKeyEntry to the progenitor's source chain first.
 fn create_signed_membrane_proof(
     signing_key: &SigningKey,
     bundle_id: String,
     for_agent: AgentPubKey,
+    signing_key_action_hash: ActionHash,
 ) -> MembraneProof {
     let membrane_proof_data = MembraneProofData {
         bundle_id,
@@ -25,10 +28,11 @@ fn create_signed_membrane_proof(
     // Sign the serialized data
     let signature = signing_key.sign(&data_bytes);
 
-    // Create the envelope
+    // Create the envelope with signing key action hash (for DHT lookup by validators)
     let envelope = MembraneProofEnvelope {
         signature: Signature(signature.to_bytes()),
         data: membrane_proof_data,
+        signing_key_action_hash,
     };
 
     // Serialize to MembraneProof
@@ -55,12 +59,11 @@ async fn test_multi_agent_membrane_proof_connection() {
 
     // Generate an ed25519 signing keypair for membrane proof signing
     let signing_key = SigningKey::generate(&mut OsRng);
-    let signing_pub_key = signing_key.verifying_key().to_bytes().to_vec();
+    // Note: signing_pub_key no longer in Properties - it goes in the membrane proof envelope
 
-    // Create properties with agent[0] as the progenitor and the signing key
+    // Create properties with agent[0] as the progenitor only
     let properties = Properties {
         progenitor_pub_key: agents[0].clone(),
-        signing_pub_key: signing_pub_key.clone(),
     };
     let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
 
@@ -115,6 +118,22 @@ async fn test_multi_agent_membrane_proof_connection() {
         _ => panic!("Expected provisioned cell"),
     };
 
+    // Commit signing key to progenitor's source chain
+    let signing_pub_key = signing_key.verifying_key().to_bytes().to_vec();
+    let _action_hash: ActionHash = conductors[0]
+        .raw_handle()
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "commit_signing_key", signing_pub_key)
+        .await
+        .unwrap();
+
+    // Get the signing key action hash for use in membrane proofs
+    let signing_key_action_hash: Option<ActionHash> = conductors[0]
+        .raw_handle()
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "get_signing_key_action_hash", ())
+        .await
+        .unwrap();
+    let signing_key_action_hash = signing_key_action_hash.expect("Signing key action hash should exist");
+
     // Verify agent1 can make zome calls
     let hello_response: String = conductors[0]
         .raw_handle()
@@ -128,6 +147,7 @@ async fn test_multi_agent_membrane_proof_connection() {
         &signing_key,
         network_seed.clone(),
         agents[1].clone(),
+        signing_key_action_hash,
     );
 
     // Install for agent2 with membrane proof
@@ -198,11 +218,10 @@ async fn test_membrane_proof_required_for_non_progenitor() {
 
     // Generate an ed25519 signing keypair
     let signing_key = SigningKey::generate(&mut OsRng);
-    let signing_pub_key = signing_key.verifying_key().to_bytes().to_vec();
+    // signing_pub_key now goes in membrane proof, not properties
 
     let properties = Properties {
         progenitor_pub_key: agents[0].clone(),
-        signing_pub_key: signing_pub_key.clone(),
     };
     let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
 
@@ -290,12 +309,11 @@ async fn test_remote_call_without_cap_grant_fails() {
 
     // Generate an ed25519 signing keypair
     let signing_key = SigningKey::generate(&mut OsRng);
-    let signing_pub_key = signing_key.verifying_key().to_bytes().to_vec();
+    // signing_pub_key now goes in membrane proof, not properties
 
-    // Create properties with agent[0] as the progenitor and the signing key
+    // Create properties with agent[0] as the progenitor only
     let properties = Properties {
         progenitor_pub_key: agents[0].clone(),
-        signing_pub_key: signing_pub_key.clone(),
     };
     let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
 
@@ -350,11 +368,28 @@ async fn test_remote_call_without_cap_grant_fails() {
         _ => panic!("Expected provisioned cell"),
     };
 
+    // Commit signing key to progenitor's source chain
+    let signing_pub_key = signing_key.verifying_key().to_bytes().to_vec();
+    let _action_hash: ActionHash = conductors[0]
+        .raw_handle()
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "commit_signing_key", signing_pub_key)
+        .await
+        .unwrap();
+
+    // Get the signing key action hash for use in membrane proofs
+    let signing_key_action_hash: Option<ActionHash> = conductors[0]
+        .raw_handle()
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "get_signing_key_action_hash", ())
+        .await
+        .unwrap();
+    let signing_key_action_hash = signing_key_action_hash.expect("Signing key action hash should exist");
+
     // Create membrane proof for agent2 using external signing
     let membrane_proof = create_signed_membrane_proof(
         &signing_key,
         network_seed.clone(),
         agents[1].clone(),
+        signing_key_action_hash,
     );
 
     // Install for agent2 with membrane proof
@@ -434,12 +469,11 @@ async fn test_remote_call_with_unrestricted_cap_grant_succeeds() {
 
     // Generate an ed25519 signing keypair
     let signing_key = SigningKey::generate(&mut OsRng);
-    let signing_pub_key = signing_key.verifying_key().to_bytes().to_vec();
+    // signing_pub_key now goes in membrane proof, not properties
 
-    // Create properties with agent[0] as the progenitor and the signing key
+    // Create properties with agent[0] as the progenitor only
     let properties = Properties {
         progenitor_pub_key: agents[0].clone(),
-        signing_pub_key: signing_pub_key.clone(),
     };
     let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
 
@@ -494,11 +528,28 @@ async fn test_remote_call_with_unrestricted_cap_grant_succeeds() {
         _ => panic!("Expected provisioned cell"),
     };
 
+    // Commit signing key to progenitor's source chain
+    let signing_pub_key = signing_key.verifying_key().to_bytes().to_vec();
+    let _action_hash: ActionHash = conductors[0]
+        .raw_handle()
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "commit_signing_key", signing_pub_key)
+        .await
+        .unwrap();
+
+    // Get the signing key action hash for use in membrane proofs
+    let signing_key_action_hash: Option<ActionHash> = conductors[0]
+        .raw_handle()
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "get_signing_key_action_hash", ())
+        .await
+        .unwrap();
+    let signing_key_action_hash = signing_key_action_hash.expect("Signing key action hash should exist");
+
     // Create membrane proof for agent2 using external signing
     let membrane_proof = create_signed_membrane_proof(
         &signing_key,
         network_seed.clone(),
         agents[1].clone(),
+        signing_key_action_hash,
     );
 
     // Install for agent2 with membrane proof
@@ -605,12 +656,11 @@ async fn test_agent_join_verification_via_profile() {
 
     // Generate an ed25519 signing keypair
     let signing_key = SigningKey::generate(&mut OsRng);
-    let signing_pub_key = signing_key.verifying_key().to_bytes().to_vec();
+    // signing_pub_key now goes in membrane proof, not properties
 
-    // Create properties with agent[0] as the progenitor and the signing key
+    // Create properties with agent[0] as the progenitor only
     let properties = Properties {
         progenitor_pub_key: agents[0].clone(),
-        signing_pub_key: signing_pub_key.clone(),
     };
     let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
 
@@ -665,11 +715,28 @@ async fn test_agent_join_verification_via_profile() {
         _ => panic!("Expected provisioned cell"),
     };
 
+    // Commit signing key to progenitor's source chain
+    let signing_pub_key = signing_key.verifying_key().to_bytes().to_vec();
+    let _action_hash: ActionHash = conductors[0]
+        .raw_handle()
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "commit_signing_key", signing_pub_key)
+        .await
+        .unwrap();
+
+    // Get the signing key action hash for use in membrane proofs
+    let signing_key_action_hash: Option<ActionHash> = conductors[0]
+        .raw_handle()
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "get_signing_key_action_hash", ())
+        .await
+        .unwrap();
+    let signing_key_action_hash = signing_key_action_hash.expect("Signing key action hash should exist");
+
     // Create membrane proof for agent2 using external signing
     let membrane_proof = create_signed_membrane_proof(
         &signing_key,
         network_seed.clone(),
         agents[1].clone(),
+        signing_key_action_hash,
     );
 
     // Install for agent2 with membrane proof
