@@ -3,42 +3,33 @@ use hdk::prelude::*;
 use holochain::conductor::api::CellInfo;
 use holochain::prelude::{AppBundleSource, RoleSettings, InstallAppPayload, DnaModifiersOpt, YamlProperties};
 use holochain::sweettest::{SweetAgents, SweetConductorBatch, SweetConductorConfig, SweetDnaFile, app_bundle_from_dnas};
-use shared_types::{MembraneProofData, MembraneProofEnvelope, Properties, RemoteCallInput};
-use ed25519_dalek::{SigningKey, Signer};
+use shared_types::{MembraneProofData, Properties, RemoteCallInput};
+use ed25519_dalek::SigningKey;
 use rand::rngs::OsRng;
 
-/// Helper function to create a membrane proof with external signing
-/// Note: For full integration tests, the signing_key_action_hash should be obtained
-/// by committing a SigningKeyEntry to the progenitor's source chain first.
-fn create_signed_membrane_proof(
-    signing_key: &SigningKey,
-    bundle_id: String,
+/// Helper function to generate membrane proof using the zome function.
+/// This calls the progenitor's generate_membrane_proof zome function.
+async fn generate_membrane_proof_via_zome(
+    conductor: &holochain::sweettest::SweetConductor,
+    agent: &AgentPubKey,
+    cell_id: holochain::prelude::CellId,
     for_agent: AgentPubKey,
-    signing_key_action_hash: ActionHash,
+    network_seed: String,
 ) -> MembraneProof {
     let membrane_proof_data = MembraneProofData {
-        bundle_id,
+        bundle_id: network_seed,
         for_agent,
     };
 
-    // Serialize the data the same way Holochain does
-    let data_bytes = holochain_serialized_bytes::encode(&membrane_proof_data)
-        .expect("Failed to serialize membrane proof data");
+    let proof_bytes: SerializedBytes = conductor
+        .raw_handle()
+        .easy_call_zome(agent, None, cell_id, ZomeName::from("storage"), "generate_membrane_proof", membrane_proof_data)
+        .await
+        .expect("generate_membrane_proof should succeed");
 
-    // Sign the serialized data
-    let signature = signing_key.sign(&data_bytes);
-
-    // Create the envelope with signing key action hash (for DHT lookup by validators)
-    let envelope = MembraneProofEnvelope {
-        signature: Signature(signature.to_bytes()),
-        data: membrane_proof_data,
-        signing_key_action_hash,
-    };
-
-    // Serialize to MembraneProof
-    let proof_bytes = SerializedBytes::try_from(envelope).expect("Failed to serialize envelope");
     MembraneProof::from(proof_bytes)
 }
+
 
 /// Test that two agents can connect through a DNA with membrane proof validation.
 /// The progenitor (first agent) creates the bundle and generates a membrane proof
@@ -126,13 +117,13 @@ async fn test_multi_agent_membrane_proof_connection() {
         .await
         .unwrap();
 
-    // Get the signing key action hash for use in membrane proofs
-    let signing_key_action_hash: Option<ActionHash> = conductors[0]
+    // Commit private signing key to progenitor's source chain (for membrane proof generation)
+    let signing_key_seed = signing_key.to_bytes().to_vec();
+    let _private_action_hash: ActionHash = conductors[0]
         .raw_handle()
-        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "get_signing_key_action_hash", ())
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "commit_private_signing_key", signing_key_seed)
         .await
         .unwrap();
-    let signing_key_action_hash = signing_key_action_hash.expect("Signing key action hash should exist");
 
     // Verify agent1 can make zome calls
     let hello_response: String = conductors[0]
@@ -142,13 +133,14 @@ async fn test_multi_agent_membrane_proof_connection() {
         .unwrap();
     assert!(hello_response.contains("Agent1"));
 
-    // Create membrane proof for agent2 using external signing
-    let membrane_proof = create_signed_membrane_proof(
-        &signing_key,
-        network_seed.clone(),
+    // Create membrane proof for agent2 using the zome function
+    let membrane_proof = generate_membrane_proof_via_zome(
+        &conductors[0],
+        &agents[0],
+        cell1_id.clone(),
         agents[1].clone(),
-        signing_key_action_hash,
-    );
+        network_seed.clone(),
+    ).await;
 
     // Install for agent2 with membrane proof
     let mut roles_settings2 = std::collections::HashMap::new();
@@ -376,21 +368,22 @@ async fn test_remote_call_without_cap_grant_fails() {
         .await
         .unwrap();
 
-    // Get the signing key action hash for use in membrane proofs
-    let signing_key_action_hash: Option<ActionHash> = conductors[0]
+    // Commit private signing key to progenitor's source chain (for membrane proof generation)
+    let signing_key_seed = signing_key.to_bytes().to_vec();
+    let _private_action_hash: ActionHash = conductors[0]
         .raw_handle()
-        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "get_signing_key_action_hash", ())
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "commit_private_signing_key", signing_key_seed)
         .await
         .unwrap();
-    let signing_key_action_hash = signing_key_action_hash.expect("Signing key action hash should exist");
 
-    // Create membrane proof for agent2 using external signing
-    let membrane_proof = create_signed_membrane_proof(
-        &signing_key,
-        network_seed.clone(),
+    // Create membrane proof for agent2 using the zome function
+    let membrane_proof = generate_membrane_proof_via_zome(
+        &conductors[0],
+        &agents[0],
+        cell1_id.clone(),
         agents[1].clone(),
-        signing_key_action_hash,
-    );
+        network_seed.clone(),
+    ).await;
 
     // Install for agent2 with membrane proof
     let mut roles_settings2 = std::collections::HashMap::new();
@@ -536,21 +529,22 @@ async fn test_remote_call_with_unrestricted_cap_grant_succeeds() {
         .await
         .unwrap();
 
-    // Get the signing key action hash for use in membrane proofs
-    let signing_key_action_hash: Option<ActionHash> = conductors[0]
+    // Commit private signing key to progenitor's source chain (for membrane proof generation)
+    let signing_key_seed = signing_key.to_bytes().to_vec();
+    let _private_action_hash: ActionHash = conductors[0]
         .raw_handle()
-        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "get_signing_key_action_hash", ())
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "commit_private_signing_key", signing_key_seed)
         .await
         .unwrap();
-    let signing_key_action_hash = signing_key_action_hash.expect("Signing key action hash should exist");
 
-    // Create membrane proof for agent2 using external signing
-    let membrane_proof = create_signed_membrane_proof(
-        &signing_key,
-        network_seed.clone(),
+    // Create membrane proof for agent2 using the zome function
+    let membrane_proof = generate_membrane_proof_via_zome(
+        &conductors[0],
+        &agents[0],
+        cell1_id.clone(),
         agents[1].clone(),
-        signing_key_action_hash,
-    );
+        network_seed.clone(),
+    ).await;
 
     // Install for agent2 with membrane proof
     let mut roles_settings2 = std::collections::HashMap::new();
@@ -723,21 +717,22 @@ async fn test_agent_join_verification_via_profile() {
         .await
         .unwrap();
 
-    // Get the signing key action hash for use in membrane proofs
-    let signing_key_action_hash: Option<ActionHash> = conductors[0]
+    // Commit private signing key to progenitor's source chain (for membrane proof generation)
+    let signing_key_seed = signing_key.to_bytes().to_vec();
+    let _private_action_hash: ActionHash = conductors[0]
         .raw_handle()
-        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "get_signing_key_action_hash", ())
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "commit_private_signing_key", signing_key_seed)
         .await
         .unwrap();
-    let signing_key_action_hash = signing_key_action_hash.expect("Signing key action hash should exist");
 
-    // Create membrane proof for agent2 using external signing
-    let membrane_proof = create_signed_membrane_proof(
-        &signing_key,
-        network_seed.clone(),
+    // Create membrane proof for agent2 using the zome function
+    let membrane_proof = generate_membrane_proof_via_zome(
+        &conductors[0],
+        &agents[0],
+        cell1_id.clone(),
         agents[1].clone(),
-        signing_key_action_hash,
-    );
+        network_seed.clone(),
+    ).await;
 
     // Install for agent2 with membrane proof
     let mut roles_settings2 = std::collections::HashMap::new();
