@@ -2,3 +2,6 @@
 test-feature = "test -p zomes_tests --no-default-features --features"
 test-all = "test -p zomes_tests --all-features"
 test-default = "test -p zomes_tests"
+
+[target.wasm32-unknown-unknown]
+rustflags = ["--cfg=getrandom_backend=\"custom\""]
