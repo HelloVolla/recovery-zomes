@@ -11,3 +11,4 @@ name = "shared_types"
 serde = { workspace = true, features = ["derive"] }
 hdk = { workspace = true }
 holochain_serialized_bytes = { workspace = true }
+ed25519-dalek = { workspace = true }

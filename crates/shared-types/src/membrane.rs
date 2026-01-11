@@ -1,9 +1,35 @@
+use ed25519_dalek::{SigningKey, Signer};
+
 use crate::*;
 
 #[derive(Serialize, Deserialize, Debug, SerializedBytes, Clone)]
 pub struct MembraneProofData {
     pub bundle_id: String,
     pub for_agent: AgentPubKey,
+}
+
+impl MembraneProofData {
+    pub fn get_signed_membrane_proof_bytes(
+        &self,
+        signing_key: &SigningKey,
+        signing_key_action_hash: ActionHash,
+    ) -> ExternResult<SerializedBytes> {
+        // Serialize and sign the membrane proof data
+        let data_bytes = holochain_serialized_bytes::encode(&self)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Serialization error".to_string())))?;
+        let signature = signing_key.sign(&data_bytes);
+
+        // Create the membrane proof envelope with the action hash for DHT lookup
+        let envelope = MembraneProofEnvelope {
+            signature: Signature(signature.to_bytes()),
+            data: self.clone(),
+            signing_key_action_hash,
+        };
+
+        // Convert envelope to SerializedBytes using the derived trait
+        envelope.try_into()
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Serialization error".to_string())))
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, SerializedBytes)]
