@@ -5,6 +5,8 @@ pub mod membrane;
 pub use membrane::*;
 pub mod properties;
 pub use properties::*;
+pub mod registry;
+pub use registry::*;
 pub mod remote;
 pub use remote::*;
 pub mod signing_key;
