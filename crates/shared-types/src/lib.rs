@@ -1,4 +1,4 @@
-pub use hdk::prelude::*;
+pub use hdi::prelude::*;
 pub use serde::{Deserialize, Serialize};
 
 pub mod membrane;

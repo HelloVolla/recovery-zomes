@@ -9,6 +9,6 @@ name = "shared_types"
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
-hdk = { workspace = true }
+hdi = { workspace = true }
 holochain_serialized_bytes = { workspace = true }
 ed25519-dalek = { workspace = true }
