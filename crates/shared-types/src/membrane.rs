@@ -6,14 +6,12 @@ use crate::*;
 pub struct MembraneProofData {
     pub bundle_id: String,
     pub for_agent: AgentPubKey,
+    #[serde(with = "serde_bytes")]
+    pub network_pub_key: Vec<u8>,
 }
 
 impl MembraneProofData {
-    pub fn get_signed_membrane_proof_bytes(
-        &self,
-        signing_key: &SigningKey,
-        signing_key_action_hash: ActionHash,
-    ) -> ExternResult<SerializedBytes> {
+    pub fn get_signed_membrane_proof_bytes(&self, signing_key: &SigningKey) -> ExternResult<SerializedBytes> {
         // Serialize and sign the membrane proof data
         let data_bytes = holochain_serialized_bytes::encode(&self)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Serialization error".to_string())))?;
@@ -23,7 +21,6 @@ impl MembraneProofData {
         let envelope = MembraneProofEnvelope {
             signature: Signature(signature.to_bytes()),
             data: self.clone(),
-            signing_key_action_hash,
         };
 
         // Convert envelope to SerializedBytes using the derived trait
@@ -36,9 +33,4 @@ impl MembraneProofData {
 pub struct MembraneProofEnvelope {
     pub signature: Signature,
     pub data: MembraneProofData,
-    /// Action hash of the SigningKeyEntry creation on the progenitor's source chain.
-    /// Validators fetch this record to get the public key for signature verification.
-    /// Using ActionHash instead of EntryHash prevents offline brute-force attacks
-    /// on password-derived keys since ActionHash includes unpredictable data.
-    pub signing_key_action_hash: ActionHash,
 }

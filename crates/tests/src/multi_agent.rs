@@ -14,11 +14,13 @@ async fn generate_membrane_proof_via_zome(
     agent: &AgentPubKey,
     cell_id: holochain::prelude::CellId,
     for_agent: AgentPubKey,
+    network_pub_key: Vec<u8>,
     network_seed: String,
 ) -> MembraneProof {
     let membrane_proof_data = MembraneProofData {
         bundle_id: network_seed,
         for_agent,
+        network_pub_key,
     };
 
     let proof_bytes: SerializedBytes = conductor
@@ -55,6 +57,7 @@ async fn test_multi_agent_membrane_proof_connection() {
     // Create properties with agent[0] as the progenitor only
     let properties = Properties {
         progenitor_pub_key: agents[0].clone(),
+        network_pub_key: signing_key.verifying_key().to_bytes().to_vec(),
     };
     let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
 
@@ -109,14 +112,6 @@ async fn test_multi_agent_membrane_proof_connection() {
         _ => panic!("Expected provisioned cell"),
     };
 
-    // Commit signing key to progenitor's source chain
-    let signing_pub_key = signing_key.verifying_key().to_bytes().to_vec();
-    let _action_hash: ActionHash = conductors[0]
-        .raw_handle()
-        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "commit_signing_key", signing_pub_key)
-        .await
-        .unwrap();
-
     // Commit private signing key to progenitor's source chain (for membrane proof generation)
     let signing_key_seed = signing_key.to_bytes().to_vec();
     let _private_action_hash: ActionHash = conductors[0]
@@ -139,6 +134,7 @@ async fn test_multi_agent_membrane_proof_connection() {
         &agents[0],
         cell1_id.clone(),
         agents[1].clone(),
+        signing_key.verifying_key().to_bytes().to_vec(),
         network_seed.clone(),
     ).await;
 
@@ -214,6 +210,7 @@ async fn test_membrane_proof_required_for_non_progenitor() {
 
     let properties = Properties {
         progenitor_pub_key: agents[0].clone(),
+        network_pub_key: signing_key.verifying_key().to_bytes().to_vec(),
     };
     let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
 
@@ -306,6 +303,7 @@ async fn test_remote_call_without_cap_grant_fails() {
     // Create properties with agent[0] as the progenitor only
     let properties = Properties {
         progenitor_pub_key: agents[0].clone(),
+        network_pub_key: signing_key.verifying_key().to_bytes().to_vec(),
     };
     let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
 
@@ -360,14 +358,6 @@ async fn test_remote_call_without_cap_grant_fails() {
         _ => panic!("Expected provisioned cell"),
     };
 
-    // Commit signing key to progenitor's source chain
-    let signing_pub_key = signing_key.verifying_key().to_bytes().to_vec();
-    let _action_hash: ActionHash = conductors[0]
-        .raw_handle()
-        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "commit_signing_key", signing_pub_key)
-        .await
-        .unwrap();
-
     // Commit private signing key to progenitor's source chain (for membrane proof generation)
     let signing_key_seed = signing_key.to_bytes().to_vec();
     let _private_action_hash: ActionHash = conductors[0]
@@ -382,6 +372,7 @@ async fn test_remote_call_without_cap_grant_fails() {
         &agents[0],
         cell1_id.clone(),
         agents[1].clone(),
+        signing_key.verifying_key().to_bytes().to_vec(),
         network_seed.clone(),
     ).await;
 
@@ -467,6 +458,7 @@ async fn test_remote_call_with_unrestricted_cap_grant_succeeds() {
     // Create properties with agent[0] as the progenitor only
     let properties = Properties {
         progenitor_pub_key: agents[0].clone(),
+        network_pub_key: signing_key.verifying_key().to_bytes().to_vec(),
     };
     let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
 
@@ -521,14 +513,6 @@ async fn test_remote_call_with_unrestricted_cap_grant_succeeds() {
         _ => panic!("Expected provisioned cell"),
     };
 
-    // Commit signing key to progenitor's source chain
-    let signing_pub_key = signing_key.verifying_key().to_bytes().to_vec();
-    let _action_hash: ActionHash = conductors[0]
-        .raw_handle()
-        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "commit_signing_key", signing_pub_key)
-        .await
-        .unwrap();
-
     // Commit private signing key to progenitor's source chain (for membrane proof generation)
     let signing_key_seed = signing_key.to_bytes().to_vec();
     let _private_action_hash: ActionHash = conductors[0]
@@ -543,6 +527,7 @@ async fn test_remote_call_with_unrestricted_cap_grant_succeeds() {
         &agents[0],
         cell1_id.clone(),
         agents[1].clone(),
+        signing_key.verifying_key().to_bytes().to_vec(),
         network_seed.clone(),
     ).await;
 
@@ -655,6 +640,7 @@ async fn test_agent_join_verification_via_profile() {
     // Create properties with agent[0] as the progenitor only
     let properties = Properties {
         progenitor_pub_key: agents[0].clone(),
+        network_pub_key: signing_key.verifying_key().to_bytes().to_vec(),
     };
     let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
 
@@ -709,14 +695,6 @@ async fn test_agent_join_verification_via_profile() {
         _ => panic!("Expected provisioned cell"),
     };
 
-    // Commit signing key to progenitor's source chain
-    let signing_pub_key = signing_key.verifying_key().to_bytes().to_vec();
-    let _action_hash: ActionHash = conductors[0]
-        .raw_handle()
-        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "commit_signing_key", signing_pub_key)
-        .await
-        .unwrap();
-
     // Commit private signing key to progenitor's source chain (for membrane proof generation)
     let signing_key_seed = signing_key.to_bytes().to_vec();
     let _private_action_hash: ActionHash = conductors[0]
@@ -731,6 +709,7 @@ async fn test_agent_join_verification_via_profile() {
         &agents[0],
         cell1_id.clone(),
         agents[1].clone(),
+        signing_key.verifying_key().to_bytes().to_vec(),
         network_seed.clone(),
     ).await;
 
