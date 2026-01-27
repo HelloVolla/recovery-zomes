@@ -11,3 +11,5 @@ pub mod remote;
 pub use remote::*;
 pub mod signing_key;
 pub use signing_key::*;
+pub mod invite_code;
+pub use invite_code::*;
