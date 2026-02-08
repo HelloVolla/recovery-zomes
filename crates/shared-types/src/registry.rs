@@ -23,3 +23,10 @@ pub struct UpdateMemberByAgentInput {
     pub agent: AgentPubKey,
     pub new_status: MemberStatus,
 }
+
+/// Input for adding an agent to a bundle
+#[derive(Serialize, Deserialize, Debug)]
+pub struct AddAgentToBundleInput {
+    pub bundle_id: String,
+    pub agent: AgentPubKey,
+}

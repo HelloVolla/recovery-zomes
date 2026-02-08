@@ -1,5 +1,6 @@
 use hdk::prelude::*;
 use registry_integrity::*;
+use shared_types::AddAgentToBundleInput;
 
 /// Input for registering a new storage bundle
 #[derive(Serialize, Deserialize, Debug)]
@@ -78,13 +79,6 @@ pub fn get_storage_bundle_by_id(bundle_id: String) -> ExternResult<Option<(Actio
     }
 
     Ok(None)
-}
-
-/// Input for adding an agent to a bundle
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AddAgentToBundleInput {
-    pub bundle_id: String,
-    pub agent: AgentPubKey,
 }
 
 /// Add an agent as a member of a storage bundle
