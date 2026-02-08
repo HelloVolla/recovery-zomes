@@ -177,3 +177,47 @@ pub fn update_membership_status(input: UpdateMembershipStatusInput) -> ExternRes
 
     update_entry(input.membership_action_hash, &EntryTypes::BundleMembership(membership))
 }
+
+/// Input for updating membership status by bundle_id
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UpdateStatusByBundleInput {
+    pub bundle_id: String,
+    pub status: MembershipStatus,
+}
+
+#[hdk_extern]
+pub fn update_membership_status_by_bundle(input: UpdateStatusByBundleInput) -> ExternResult<ActionHash> {
+    let my_agent = agent_info()?.agent_initial_pubkey;
+
+    // Get links from the agent to their bundle memberships
+    let links = get_links(
+        LinkQuery {
+            base: my_agent.into(),
+            link_type: LinkTypes::AgentToBundles.try_into_filter()?,
+            tag_prefix: None,
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Local,
+    )?;
+
+    // Find the membership for this specific bundle
+    for link in links {
+        if let Some(action_hash) = link.target.into_action_hash() {
+            if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
+                if let Some(mut membership) = record.entry().to_app_option::<BundleMembership>().map_err(|e| wasm_error!(e))? {
+                    if membership.bundle_id == input.bundle_id {
+                        membership.status = input.status;
+                        return update_entry(action_hash, &EntryTypes::BundleMembership(membership));
+                    }
+                }
+            }
+        }
+    }
+
+    Err(wasm_error!(WasmErrorInner::Guest(format!(
+        "No membership found for bundle_id: {}",
+        input.bundle_id
+    ))))
+}
