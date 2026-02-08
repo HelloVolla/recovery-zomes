@@ -8,5 +8,5 @@ pub fn dna_path() -> PathBuf {
         .unwrap()
         .parent()
         .unwrap()
-        .join("dnas/recovery/workdir/volla_recovery.dna")
+        .join("crates/dnas/recovery/workdir/volla_recovery.dna")
 }

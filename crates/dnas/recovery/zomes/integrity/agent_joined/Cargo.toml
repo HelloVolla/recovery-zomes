@@ -1,0 +1,13 @@
+[package]
+name = "agent_joined_integrity"
+edition = "2021"
+version = "0.0.1"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "agent_joined_integrity"
+
+[dependencies]
+hdi = { workspace = true }
+serde = { workspace = true }
+holochain_serialized_bytes = { workspace = true }

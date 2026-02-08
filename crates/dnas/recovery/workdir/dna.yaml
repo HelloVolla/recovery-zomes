@@ -1,0 +1,36 @@
+---
+manifest_version: "0"
+name: volla_recovery
+integrity:
+  network_seed: ~
+  properties: ~
+  zomes:
+    - name: agent_joined_integrity
+      hash: ~
+      path: "../../../../target/wasm32-unknown-unknown/release/agent_joined_integrity.wasm"
+      dependencies: ~
+    - name: registry_integrity
+      hash: ~
+      path: "../../../../target/wasm32-unknown-unknown/release/registry_integrity.wasm"
+      dependencies: ~
+    - name: storage_integrity
+      hash: ~
+      path: "../../../../target/wasm32-unknown-unknown/release/storage_integrity.wasm"
+      dependencies: ~
+coordinator:
+  zomes:
+    - name: agent_joined
+      hash: ~
+      path: "../../../../target/wasm32-unknown-unknown/release/agent_joined.wasm"
+      dependencies:
+        - name: agent_joined_integrity
+    - name: registry
+      hash: ~
+      path: "../../../../target/wasm32-unknown-unknown/release/registry.wasm"
+      dependencies:
+        - name: registry_integrity
+    - name: storage
+      hash: ~
+      path: "../../../../target/wasm32-unknown-unknown/release/storage.wasm"
+      dependencies:
+        - name: storage_integrity
