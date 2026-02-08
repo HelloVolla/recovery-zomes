@@ -10,6 +10,14 @@ pub struct GenerateInviteCodeInput {
     pub for_agent_pub_key: Option<Vec<u8>>,
 }
 
+/// Input for creating an invite code in the registry zome
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CreateInviteCodeInput {
+    pub code: String,
+    pub target_agent: AgentPubKey,
+    pub bundle_id: String,
+}
+
 /// An invite code containing all data needed to join a network.
 ///
 /// This struct can be serialized to a base64 string via MessagePack for easy sharing.
