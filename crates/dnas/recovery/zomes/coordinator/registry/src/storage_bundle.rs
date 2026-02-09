@@ -6,8 +6,8 @@ use shared_types::AddAgentToBundleInput;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RegisterBundleInput {
     pub network_seed: String,
-    pub name: String,
-    pub description: Option<String>,
+    pub progenitor: AgentPubKey,
+    pub network_pub_key: Vec<u8>,
 }
 
 /// Register a new storage bundle in the registry
@@ -17,9 +17,8 @@ pub fn register_storage_bundle(input: RegisterBundleInput) -> ExternResult<Actio
 
     let bundle_info = StorageBundleInfo {
         network_seed: input.network_seed.clone(),
-        name: input.name,
-        created_at: sys_time()?,
-        description: input.description,
+        progenitor: input.progenitor,
+        network_pub_key: input.network_pub_key,
     };
 
     let action_hash = create_entry(&EntryTypes::StorageBundleInfo(bundle_info))?;

@@ -6,12 +6,10 @@ use hdi::prelude::*;
 pub struct StorageBundleInfo {
     /// Unique identifier for the bundle (typically the network seed of the storage DNA)
     pub network_seed: String,
-    /// Human-readable name for the bundle
-    pub name: String,
-    /// Timestamp when the bundle was created
-    pub created_at: Timestamp,
-    /// Optional description of what this bundle contains
-    pub description: Option<String>,
+    /// Progenitor agent pubkey
+    pub progenitor: AgentPubKey,
+    /// Network pubkey of the storage DNA
+    pub network_pub_key: Vec<u8>,
 }
 
 pub fn validate_create_storage_bundle_info(
@@ -23,9 +21,9 @@ pub fn validate_create_storage_bundle_info(
             "network_seed cannot be empty".to_string(),
         ));
     }
-    if bundle_info.name.is_empty() {
+    if bundle_info.network_pub_key.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
-            "name cannot be empty".to_string(),
+            "network_pub_key cannot be empty".to_string(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
