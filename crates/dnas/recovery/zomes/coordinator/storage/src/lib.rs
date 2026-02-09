@@ -2,7 +2,7 @@ pub mod chunk;
 pub mod ping;
 pub mod storage_entry;
 use hdk::prelude::*;
-use shared_types::{GenerateInviteCodeInput, InviteCodeData, MembraneProofData, Properties, RemoteCallInput};
+use shared_types::{GenerateInviteCodeInput, InviteCode, MembraneProofData, Properties, RemoteCallInput};
 use storage_integrity::*;
 
 // Called the first time a zome call is made to the cell containing this zome
@@ -255,9 +255,9 @@ pub fn get_private_signing_key(_: ()) -> ExternResult<Option<storage_integrity::
 ///
 /// # Returns
 ///
-/// An InviteCodeData containing all information needed to join this network.
+/// An InviteCode instance containing all information needed to join this network.
 #[hdk_extern]
-pub fn generate_invite_code(input: GenerateInviteCodeInput) -> ExternResult<InviteCodeData> {
+pub fn generate_invite_code(input: GenerateInviteCodeInput) -> ExternResult<InviteCode> {
     // Get the DNA info to extract network seed and properties
     let dna_info = dna_info()?;
     let network_seed = dna_info.modifiers.network_seed.clone();
@@ -293,7 +293,7 @@ pub fn generate_invite_code(input: GenerateInviteCodeInput) -> ExternResult<Invi
         }
     }
 
-    Ok(InviteCodeData {
+    Ok(InviteCode {
         network_seed,
         progenitor_pub_key,
         network_pub_key,

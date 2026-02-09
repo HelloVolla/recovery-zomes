@@ -201,7 +201,7 @@ pub fn get_invite_code(action_hash: ActionHash) -> ExternResult<Option<Record>> 
 /// Get an invite code by its base64 code string.
 ///
 /// The `code` field in `InviteCode` entries stores the base64-encoded representation
-/// of the full `InviteCodeData` (from `shared_types::InviteCodeData::to_base64()`).
+/// of the full `InviteCode` (from `shared_types::InviteCode::to_base64()`).
 /// This function searches all invite codes for the specified agent to find a matching code.
 #[hdk_extern]
 pub fn get_invite_code_by_code(input: GetInviteCodeByCodeInput) -> ExternResult<Option<(ActionHash, InviteCode)>> {

@@ -29,7 +29,7 @@ pub struct CreateInviteCodeInput {
 /// Use `to_base64()` to convert to a shareable string, and `from_base64()` to parse it back.
 /// The base64 encoding uses URL-safe characters without padding for maximum compatibility.
 #[derive(Serialize, Deserialize, Debug, SerializedBytes, Clone)]
-pub struct InviteCodeData {
+pub struct InviteCode {
     /// The network seed string that identifies this network
     pub network_seed: String,
     /// The progenitor's public key (39-byte raw format)
@@ -43,7 +43,7 @@ pub struct InviteCodeData {
     pub membrane_proof: Option<Vec<u8>>,
 }
 
-impl InviteCodeData {
+impl InviteCode {
     /// Serializes the invite code to a base64-encoded string.
     ///
     /// Uses MessagePack for efficient binary serialization followed by URL-safe base64 encoding.
