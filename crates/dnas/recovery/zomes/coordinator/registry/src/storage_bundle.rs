@@ -5,7 +5,7 @@ use shared_types::AddAgentToBundleInput;
 /// Input for registering a new storage bundle
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RegisterBundleInput {
-    pub bundle_id: String,
+    pub network_seed: String,
     pub name: String,
     pub description: Option<String>,
 }
@@ -16,7 +16,7 @@ pub fn register_storage_bundle(input: RegisterBundleInput) -> ExternResult<Actio
     let my_agent = agent_info()?.agent_initial_pubkey;
 
     let bundle_info = StorageBundleInfo {
-        bundle_id: input.bundle_id.clone(),
+        network_seed: input.network_seed.clone(),
         name: input.name,
         created_at: sys_time()?,
         description: input.description,
@@ -29,7 +29,7 @@ pub fn register_storage_bundle(input: RegisterBundleInput) -> ExternResult<Actio
         my_agent,
         action_hash.clone(),
         LinkTypes::ProgenitorToBundles,
-        input.bundle_id.as_bytes().to_vec(),  // Store bundle_id in link tag for filtering
+        input.network_seed.as_bytes().to_vec(), // Store network_seed in link tag for filtering
     )?;
 
     Ok(action_hash)
@@ -67,13 +67,13 @@ pub fn get_storage_bundles(_: ()) -> ExternResult<Vec<(ActionHash, StorageBundle
     Ok(bundles)
 }
 
-/// Get a storage bundle by its bundle_id
+/// Get a storage bundle by its network_seed
 #[hdk_extern]
-pub fn get_storage_bundle_by_id(bundle_id: String) -> ExternResult<Option<(ActionHash, StorageBundleInfo)>> {
+pub fn get_storage_bundle_by_network_seed(network_seed: String) -> ExternResult<Option<(ActionHash, StorageBundleInfo)>> {
     let bundles = get_storage_bundles(())?;
 
     for (action_hash, bundle_info) in bundles {
-        if bundle_info.bundle_id == bundle_id {
+        if bundle_info.network_seed == network_seed {
             return Ok(Some((action_hash, bundle_info)));
         }
     }
@@ -85,11 +85,11 @@ pub fn get_storage_bundle_by_id(bundle_id: String) -> ExternResult<Option<(Actio
 #[hdk_extern]
 pub fn add_agent_to_bundle(input: AddAgentToBundleInput) -> ExternResult<ActionHash> {
     // First, get the bundle to ensure it exists
-    let bundle = get_storage_bundle_by_id(input.bundle_id.clone())?
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(format!("Bundle not found: {}", input.bundle_id))))?;
+    let bundle = get_storage_bundle_by_network_seed(input.network_seed.clone())?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(format!("Bundle not found: {}", input.network_seed))))?;
 
     let membership = BundleMembership {
-        bundle_id: input.bundle_id.clone(),
+        network_seed: input.network_seed.clone(),
         member_agent: input.agent.clone(),
         added_at: sys_time()?,
         status: MembershipStatus::Pending,
@@ -110,7 +110,7 @@ pub fn add_agent_to_bundle(input: AddAgentToBundleInput) -> ExternResult<ActionH
         input.agent,
         action_hash.clone(),
         LinkTypes::AgentToBundles,
-        input.bundle_id.as_bytes().to_vec(),
+        input.network_seed.as_bytes().to_vec(),
     )?;
 
     Ok(action_hash)
@@ -118,8 +118,8 @@ pub fn add_agent_to_bundle(input: AddAgentToBundleInput) -> ExternResult<ActionH
 
 /// Get all members of a specific bundle
 #[hdk_extern]
-pub fn get_bundle_members(bundle_id: String) -> ExternResult<Vec<(ActionHash, BundleMembership)>> {
-    let bundle = get_storage_bundle_by_id(bundle_id)?
+pub fn get_bundle_members(network_seed: String) -> ExternResult<Vec<(ActionHash, BundleMembership)>> {
+    let bundle = get_storage_bundle_by_network_seed(network_seed)?
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Bundle not found".to_string())))?;
 
     let links = get_links(
@@ -181,7 +181,7 @@ pub fn update_membership_status(input: UpdateMembershipStatusInput) -> ExternRes
 /// Input for updating membership status by bundle_id
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UpdateStatusByBundleInput {
-    pub bundle_id: String,
+    pub network_seed: String,
     pub status: MembershipStatus,
 }
 
@@ -207,7 +207,7 @@ pub fn update_membership_status_by_bundle(input: UpdateStatusByBundleInput) -> E
         if let Some(action_hash) = link.target.into_action_hash() {
             if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
                 if let Some(mut membership) = record.entry().to_app_option::<BundleMembership>().map_err(|e| wasm_error!(e))? {
-                    if membership.bundle_id == input.bundle_id {
+                    if membership.network_seed == input.network_seed {
                         membership.status = input.status;
                         return update_entry(action_hash, &EntryTypes::BundleMembership(membership));
                     }
@@ -217,7 +217,7 @@ pub fn update_membership_status_by_bundle(input: UpdateStatusByBundleInput) -> E
     }
 
     Err(wasm_error!(WasmErrorInner::Guest(format!(
-        "No membership found for bundle_id: {}",
-        input.bundle_id
+        "No membership found for network_seed: {}",
+        input.network_seed
     ))))
 }

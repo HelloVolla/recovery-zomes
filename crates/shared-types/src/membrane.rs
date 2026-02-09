@@ -4,7 +4,7 @@ use crate::*;
 
 #[derive(Serialize, Deserialize, Debug, SerializedBytes, Clone)]
 pub struct MembraneProofData {
-    pub bundle_id: String,
+    pub network_seed: String,
     pub for_agent: AgentPubKey,
     #[serde(with = "serde_bytes")]
     pub network_pub_key: Vec<u8>,

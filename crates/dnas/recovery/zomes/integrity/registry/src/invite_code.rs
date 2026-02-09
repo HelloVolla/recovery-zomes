@@ -33,8 +33,8 @@ pub struct InviteCode {
     pub code: String,
     /// The agent this invite code is for
     pub target_agent: AgentPubKey,
-    /// The bundle ID (network seed) this invite is for
-    pub bundle_id: String,
+    /// The network seed this invite is for
+    pub network_seed: String,
     /// Status of the invite
     pub status: InviteCodeStatus,
 }
@@ -48,9 +48,9 @@ pub fn validate_create_invite_code(
             "invite code cannot be empty".to_string(),
         ));
     }
-    if invite_code.bundle_id.is_empty() {
+    if invite_code.network_seed.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
-            "bundle_id cannot be empty".to_string(),
+            "network_seed cannot be empty".to_string(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)

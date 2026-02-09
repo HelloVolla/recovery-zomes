@@ -281,7 +281,7 @@ pub fn generate_invite_code(input: GenerateInviteCodeInput) -> ExternResult<Invi
 
         // Create membrane proof data
         let membrane_proof_data = shared_types::MembraneProofData {
-            bundle_id: network_seed.clone(),
+            network_seed: network_seed.clone(),
             for_agent,
             network_pub_key: network_pub_key.clone(),
         };

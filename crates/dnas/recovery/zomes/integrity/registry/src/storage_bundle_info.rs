@@ -5,7 +5,7 @@ use hdi::prelude::*;
 #[hdk_entry_helper]
 pub struct StorageBundleInfo {
     /// Unique identifier for the bundle (typically the network seed of the storage DNA)
-    pub bundle_id: String,
+    pub network_seed: String,
     /// Human-readable name for the bundle
     pub name: String,
     /// Timestamp when the bundle was created
@@ -18,9 +18,9 @@ pub fn validate_create_storage_bundle_info(
     _action: EntryCreationAction,
     bundle_info: StorageBundleInfo,
 ) -> ExternResult<ValidateCallbackResult> {
-    if bundle_info.bundle_id.is_empty() {
+    if bundle_info.network_seed.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
-            "bundle_id cannot be empty".to_string(),
+            "network_seed cannot be empty".to_string(),
         ));
     }
     if bundle_info.name.is_empty() {

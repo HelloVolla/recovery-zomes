@@ -15,7 +15,7 @@ pub struct GenerateInviteCodeInput {
 pub struct CreateInviteCodeInput {
     pub code: String,
     pub target_agent: AgentPubKey,
-    pub bundle_id: String,
+    pub network_seed: String,
 }
 
 /// An invite code containing all data needed to join a network.

@@ -1,21 +1,21 @@
 use hdk::prelude::*;
 use registry_integrity::*;
 use shared_types::{CreateInviteCodeInput, GetInviteCodeByCodeInput};
-use crate::storage_bundle::get_storage_bundle_by_id;
+use crate::storage_bundle::get_storage_bundle_by_network_seed;
 
 /// Create a new invite code for a target agent
 #[hdk_extern]
 pub fn create_invite_code(input: CreateInviteCodeInput) -> ExternResult<Record> {
     // Look up the bundle to get its action hash for linking
-    let bundle = get_storage_bundle_by_id(input.bundle_id.clone())?
+    let bundle = get_storage_bundle_by_network_seed(input.network_seed.clone())?
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(format!(
-            "Bundle not found: {}", input.bundle_id
+            "Bundle not found: {}", input.network_seed
         ))))?;
 
     let invite_code = InviteCode {
         code: input.code,
         target_agent: input.target_agent.clone(),
-        bundle_id: input.bundle_id,
+        network_seed: input.network_seed,
         status: InviteCodeStatus::Pending,
     };
 
@@ -89,8 +89,8 @@ pub fn get_invite_codes_for_agent(agent: AgentPubKey) -> ExternResult<Vec<Record
 
 /// Get invite codes for a specific bundle
 #[hdk_extern]
-pub fn get_invite_codes_for_bundle(bundle_id: String) -> ExternResult<Vec<Record>> {
-    let bundle = get_storage_bundle_by_id(bundle_id)?
+pub fn get_invite_codes_for_bundle(network_seed: String) -> ExternResult<Vec<Record>> {
+    let bundle = get_storage_bundle_by_network_seed(network_seed)?
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Bundle not found".to_string())))?;
 
     let links = get_links(

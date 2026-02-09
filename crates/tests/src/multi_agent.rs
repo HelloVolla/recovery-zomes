@@ -18,7 +18,7 @@ async fn generate_membrane_proof_via_zome(
     network_seed: String,
 ) -> MembraneProof {
     let membrane_proof_data = MembraneProofData {
-        bundle_id: network_seed,
+        network_seed,
         for_agent,
         network_pub_key,
     };

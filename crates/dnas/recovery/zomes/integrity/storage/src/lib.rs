@@ -93,7 +93,7 @@ fn check_agent(
             let envelope = MembraneProofEnvelope::try_from((*serialized_proof).clone())
                 .map_err(|e| wasm_error!(e))?;
 
-            if envelope.data.bundle_id != info.modifiers.network_seed {
+            if envelope.data.network_seed != info.modifiers.network_seed {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Membrane proof is not for this conversation".to_string(),
                 ));
