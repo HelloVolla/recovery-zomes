@@ -1,16 +1,12 @@
 pub mod registry_member;
+pub use registry_member::*;
 pub mod storage_bundle;
+pub use storage_bundle::*;
 pub mod sync;
-pub mod invite_code;
+pub use sync::*;
 
 use hdk::prelude::*;
 use registry_integrity::*;
-
-// Re-export public functions from modules
-pub use registry_member::*;
-pub use storage_bundle::*;
-pub use sync::*;
-pub use invite_code::*;
 
 /// Called the first time a zome call is made to the cell containing this zome
 #[hdk_extern]
@@ -50,23 +46,13 @@ pub enum Signal {
     /// An agent was added to a bundle
     AgentAddedToBundle {
         action: SignedActionHashed,
-        membership: BundleMembership,
+        membership: BundleMember,
     },
     /// A new bundle notification was received
     NewBundleNotification {
         bundle_id: String,
         bundle_name: String,
         membership_action_hash: ActionHash,
-    },
-    /// A new invite code was created
-    InviteCodeCreated {
-        action: SignedActionHashed,
-        invite_code: InviteCode,
-    },
-    /// An invite code was fulfilled
-    InviteCodeFulfilled {
-        action: SignedActionHashed,
-        invite_code: InviteCode,
     },
     /// Generic entry created signal
     EntryCreated {

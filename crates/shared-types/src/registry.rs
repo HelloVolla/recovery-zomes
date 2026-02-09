@@ -1,13 +1,25 @@
 use crate::*;
 
-#[derive(Clone, PartialEq, serde::Serialize, serde::Deserialize, Debug)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub enum MemberStatus {
-    /// Agent has been invited but hasn't joined the registry yet
-    Invited,
+    /// Agent has been invited with an invite code
+    Invited(String),
     /// Agent has joined and is actively a member
     Active,
     /// Membership has been revoked
     Revoked,
+    /// Membership has been rejected
+    Rejected(RejectionReason),
+}
+
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
+pub enum RejectionReason {
+    /// Unknown failure reason
+    Unknown,
+    /// The invite code was for another agent
+    ForAnotherAgent,
+    /// The agent does not have enough storage space
+    NotEnoughStorage,
 }
 
 /// Input for inviting a registry member
@@ -15,6 +27,7 @@ pub enum MemberStatus {
 pub struct InviteMemberInput {
     pub agent: AgentPubKey,
     pub display_name: Option<String>,
+    pub invite_code_base64: String,
 }
 
 /// Update member status by agent pub key
@@ -24,9 +37,10 @@ pub struct UpdateMemberByAgentInput {
     pub new_status: MemberStatus,
 }
 
-/// Input for adding an agent to a bundle
+/// Input for inviting an agent to a bundle
 #[derive(Serialize, Deserialize, Debug)]
-pub struct AddAgentToBundleInput {
+pub struct InviteAgentToBundleInput {
     pub network_seed: String,
     pub agent: AgentPubKey,
+    pub invite_code_base64: String,
 }

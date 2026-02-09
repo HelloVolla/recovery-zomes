@@ -13,7 +13,7 @@ pub fn invite_member(input: InviteMemberInput) -> ExternResult<ActionHash> {
     let member = RegistryMember {
         agent: input.agent.clone(),
         display_name: input.display_name,
-        status: MemberStatus::Invited,
+        status: MemberStatus::Invited(input.invite_code_base64),
     };
 
     let action_hash = create_entry(&EntryTypes::RegistryMember(member))?;
@@ -114,14 +114,14 @@ pub fn get_active_members(_: ()) -> ExternResult<Vec<(ActionHash, RegistryMember
     Ok(active)
 }
 
-/// Get invited (pending) registry members
+/// Get invited registry members
 #[hdk_extern]
 pub fn get_invited_members(_: ()) -> ExternResult<Vec<(ActionHash, RegistryMember)>> {
     let all_members = get_registry_members(())?;
 
     let invited: Vec<(ActionHash, RegistryMember)> = all_members
         .into_iter()
-        .filter(|(_, member)| matches!(member.status, MemberStatus::Invited))
+        .filter(|(_, member)| matches!(member.status, MemberStatus::Invited(_)))
         .collect();
 
     Ok(invited)
