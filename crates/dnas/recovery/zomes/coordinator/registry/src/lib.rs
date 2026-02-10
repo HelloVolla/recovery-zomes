@@ -41,7 +41,7 @@ pub enum Signal {
     /// A new storage bundle was registered
     BundleRegistered {
         action: SignedActionHashed,
-        bundle_info: StorageBundleInfo,
+        bundle_info: StorageBundle,
     },
     /// An agent was added to a bundle
     AgentAddedToBundle {

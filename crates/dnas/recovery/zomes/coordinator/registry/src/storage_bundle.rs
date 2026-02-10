@@ -15,13 +15,13 @@ pub struct RegisterBundleInput {
 pub fn register_storage_bundle(input: RegisterBundleInput) -> ExternResult<ActionHash> {
     let my_agent = agent_info()?.agent_initial_pubkey;
 
-    let bundle_info = StorageBundleInfo {
+    let bundle_info = StorageBundle {
         network_seed: input.network_seed.clone(),
         progenitor: input.progenitor,
         network_pub_key: input.network_pub_key,
     };
 
-    let action_hash = create_entry(&EntryTypes::StorageBundleInfo(bundle_info))?;
+    let action_hash = create_entry(&EntryTypes::StorageBundle(bundle_info))?;
 
     // Create link from progenitor to bundle
     create_link(
@@ -36,7 +36,7 @@ pub fn register_storage_bundle(input: RegisterBundleInput) -> ExternResult<Actio
 
 /// Get all storage bundles registered by the current agent
 #[hdk_extern]
-pub fn get_storage_bundles(_: ()) -> ExternResult<Vec<(ActionHash, StorageBundleInfo)>> {
+pub fn get_storage_bundles(_: ()) -> ExternResult<Vec<(ActionHash, StorageBundle)>> {
     let my_agent = agent_info()?.agent_initial_pubkey;
 
     let links = get_links(
@@ -56,7 +56,7 @@ pub fn get_storage_bundles(_: ()) -> ExternResult<Vec<(ActionHash, StorageBundle
     for link in links {
         if let Some(action_hash) = link.target.into_action_hash() {
             if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
-                if let Some(bundle_info) = record.entry().to_app_option::<StorageBundleInfo>().map_err(|e| wasm_error!(e))? {
+                if let Some(bundle_info) = record.entry().to_app_option::<StorageBundle>().map_err(|e| wasm_error!(e))? {
                     bundles.push((action_hash, bundle_info));
                 }
             }
@@ -68,7 +68,7 @@ pub fn get_storage_bundles(_: ()) -> ExternResult<Vec<(ActionHash, StorageBundle
 
 /// Get a storage bundle by its network_seed
 #[hdk_extern]
-pub fn get_storage_bundle_by_network_seed(network_seed: String) -> ExternResult<Option<(ActionHash, StorageBundleInfo)>> {
+pub fn get_storage_bundle_by_network_seed(network_seed: String) -> ExternResult<Option<(ActionHash, StorageBundle)>> {
     let bundles = get_storage_bundles(())?;
 
     for (action_hash, bundle_info) in bundles {

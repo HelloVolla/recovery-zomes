@@ -1,7 +1,7 @@
 pub mod registry_member;
 pub use registry_member::*;
-pub mod storage_bundle_info;
-pub use storage_bundle_info::*;
+pub mod storage_bundle;
+pub use storage_bundle::*;
 pub mod bundle_member;
 pub use bundle_member::*;
 
@@ -13,7 +13,7 @@ use hdi::prelude::*;
 #[unit_enum(UnitEntryTypes)]
 pub enum EntryTypes {
     RegistryMember(RegistryMember),
-    StorageBundleInfo(StorageBundleInfo),
+    StorageBundle(StorageBundle),
     BundleMember(BundleMember),
 }
 
@@ -38,8 +38,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::StoreEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::RegistryMember(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::StorageBundleInfo(bundle_info) => {
-                    validate_create_storage_bundle_info(EntryCreationAction::Create(action), bundle_info)
+                EntryTypes::StorageBundle(bundle) => {
+                    validate_create_storage_bundle_info(EntryCreationAction::Create(action), bundle)
                 }
                 EntryTypes::BundleMember(membership) => {
                     validate_create_bundle_member(EntryCreationAction::Create(action), membership)
@@ -47,8 +47,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry { app_entry, action, .. } => match app_entry {
                 EntryTypes::RegistryMember(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::StorageBundleInfo(bundle_info) => {
-                    validate_create_storage_bundle_info(EntryCreationAction::Update(action), bundle_info)
+                EntryTypes::StorageBundle(bundle) => {
+                    validate_create_storage_bundle_info(EntryCreationAction::Update(action), bundle)
                 }
                 EntryTypes::BundleMember(membership) => {
                     validate_create_bundle_member(EntryCreationAction::Update(action), membership)
