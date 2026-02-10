@@ -21,11 +21,11 @@ pub enum EntryTypes {
 #[hdk_link_types]
 pub enum LinkTypes {
     /// Link from member's agent pub key to their RegistryMember entry
-    AgentToMember,
+    AgentToRegistryMember,
     /// Link from bundle entry hash to its member agents
-    BundleToMembers,
+    BundleToBundleMembers,
     /// Link from agent to bundles they are a member of
-    AgentToBundles,
+    AgentToStorageBundles,
     /// Link from fixed anchor to registry members
     AllRegistryMembers,
     /// Link from fixed anchor to storage bundles

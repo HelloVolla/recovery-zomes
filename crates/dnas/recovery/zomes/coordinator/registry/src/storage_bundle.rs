@@ -103,7 +103,7 @@ pub fn invite_agent_to_bundle(input: InviteAgentToBundleInput) -> ExternResult<A
     create_link(
         bundle.0.clone(),
         action_hash.clone(),
-        LinkTypes::BundleToMembers,
+        LinkTypes::BundleToBundleMembers,
         (),
     )?;
 
@@ -111,7 +111,7 @@ pub fn invite_agent_to_bundle(input: InviteAgentToBundleInput) -> ExternResult<A
     create_link(
         input.agent,
         action_hash.clone(),
-        LinkTypes::AgentToBundles,
+        LinkTypes::AgentToStorageBundles,
         input.network_seed.as_bytes().to_vec(),
     )?;
 
@@ -127,7 +127,7 @@ pub fn get_bundle_members(network_seed: String) -> ExternResult<Vec<(ActionHash,
     let links = get_links(
         LinkQuery {
             base: bundle.0.into(),
-            link_type: LinkTypes::BundleToMembers.try_into_filter()?,
+            link_type: LinkTypes::BundleToBundleMembers.try_into_filter()?,
             tag_prefix: None,
             before: None,
             after: None,
@@ -195,7 +195,7 @@ pub fn update_membership_status_by_bundle(input: UpdateStatusByBundleInput) -> E
     let links = get_links(
         LinkQuery {
             base: my_agent.into(),
-            link_type: LinkTypes::AgentToBundles.try_into_filter()?,
+            link_type: LinkTypes::AgentToStorageBundles.try_into_filter()?,
             tag_prefix: None,
             before: None,
             after: None,

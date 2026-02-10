@@ -11,7 +11,7 @@ pub fn get_my_assigned_bundles(_: ()) -> ExternResult<Vec<(ActionHash, BundleMem
     let links = get_links(
         LinkQuery {
             base: my_agent.into(),
-            link_type: LinkTypes::AgentToBundles.try_into_filter()?,
+            link_type: LinkTypes::AgentToStorageBundles.try_into_filter()?,
             tag_prefix: None,
             before: None,
             after: None,

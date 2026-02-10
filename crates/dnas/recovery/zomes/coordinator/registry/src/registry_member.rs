@@ -33,7 +33,7 @@ pub fn invite_member(input: InviteMemberInput) -> ExternResult<ActionHash> {
     create_link(
         input.agent,
         action_hash.clone(),
-        LinkTypes::AgentToMember,
+        LinkTypes::AgentToRegistryMember,
         (),
     )?;
 
@@ -76,7 +76,7 @@ pub fn get_member_by_agent(agent: AgentPubKey) -> ExternResult<Option<(ActionHas
     let links = get_links(
         LinkQuery {
             base: agent.into(),
-            link_type: LinkTypes::AgentToMember.try_into_filter()?,
+            link_type: LinkTypes::AgentToRegistryMember.try_into_filter()?,
             tag_prefix: None,
             before: None,
             after: None,
