@@ -1,3 +1,5 @@
+use crate::*;
+
 use hdk::prelude::*;
 use registry_integrity::*;
 use shared_types::{InviteAgentToBundleInput, MemberStatus};
@@ -97,17 +99,27 @@ pub fn invite_agent_to_bundle(input: InviteAgentToBundleInput) -> ExternResult<A
         status: MemberStatus::Invited(input.invite_code_base64),
     };
 
-    let action_hash = create_entry(&EntryTypes::BundleMember(member))?;
+    let action_hash = create_entry(&EntryTypes::BundleMember(member.clone()))?;
 
-    // Create link from bundle to membership
+    // Create link from bundle to bundle member
+    let bundle_tag = create_member_status_tag(&member.status);
     create_link(
         bundle.0.clone(),
         action_hash.clone(),
         LinkTypes::BundleToBundleMembers,
-        (),
+        bundle_tag,
     )?;
 
-    // Create reverse link from agent to bundle for efficient querying by host
+    // Create link from agent to their bundle member instance
+    let agent_tag = create_member_status_tag(&member.status);
+    create_link(
+        input.agent.clone(),
+        action_hash.clone(),
+        LinkTypes::AgentToBundleMembers,
+        agent_tag,
+    )?;
+
+    // Keep existing link for backward compatibility
     create_link(
         input.agent,
         action_hash.clone(),
@@ -157,16 +169,16 @@ pub fn remove_agent_from_bundle(membership_action_hash: ActionHash) -> ExternRes
     delete_entry(membership_action_hash)
 }
 
-/// Update the status of a bundle membership
+/// Update the status of a bundle member
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UpdateBundleMemberStatusInput {
-    pub membership_action_hash: ActionHash,
+    pub member_action_hash: ActionHash,
     pub new_status: MemberStatus,
 }
 
 #[hdk_extern]
 pub fn update_bundle_member_status(input: UpdateBundleMemberStatusInput) -> ExternResult<ActionHash> {
-    let record = get(input.membership_action_hash.clone(), GetOptions::default())?
+    let record = get(input.member_action_hash.clone(), GetOptions::default())?
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Membership not found".to_string())))?;
 
     let mut membership: BundleMember = record
@@ -175,20 +187,42 @@ pub fn update_bundle_member_status(input: UpdateBundleMemberStatusInput) -> Exte
         .map_err(|e| wasm_error!(e))?
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Invalid membership entry".to_string())))?;
 
-    membership.status = input.new_status;
+    membership.status = input.new_status.clone();
 
-    update_entry(input.membership_action_hash, &EntryTypes::BundleMember(membership))
+    let new_action_hash = update_entry(input.member_action_hash.clone(), &EntryTypes::BundleMember(membership.clone()))?;
+
+    // Update link tags for AgentToBundleMembers
+    update_member_links(
+        membership.agent.clone(),
+        input.member_action_hash.clone(),
+        new_action_hash.clone(),
+        &input.new_status,
+        LinkTypes::AgentToBundleMembers,
+    )?;
+
+    // Update link tags for BundleToBundleMembers
+    if let Some((bundle_action_hash, _)) = get_storage_bundle_by_network_seed(membership.network_seed.clone())? {
+        update_member_links(
+            bundle_action_hash,
+            input.member_action_hash.clone(),
+            new_action_hash.clone(),
+            &input.new_status,
+            LinkTypes::BundleToBundleMembers,
+        )?;
+    }
+
+    Ok(new_action_hash)
 }
 
-/// Input for updating membership status by bundle_id
+/// Input for updating member status by network seed
 #[derive(Serialize, Deserialize, Debug)]
-pub struct UpdateStatusByBundleInput {
+pub struct UpdateMemberStatusByNetworkSeedInput {
     pub network_seed: String,
     pub status: MemberStatus,
 }
 
 #[hdk_extern]
-pub fn update_membership_status_by_bundle(input: UpdateStatusByBundleInput) -> ExternResult<ActionHash> {
+pub fn update_member_status_by_network_seed(input: UpdateMemberStatusByNetworkSeedInput) -> ExternResult<ActionHash> {
     let my_agent = agent_info()?.agent_initial_pubkey;
 
     // Get links from the agent to their bundle memberships
@@ -222,4 +256,107 @@ pub fn update_membership_status_by_bundle(input: UpdateStatusByBundleInput) -> E
         "No membership found for network_seed: {}",
         input.network_seed
     ))))
+}
+
+/// Get all bundle member instances for a specific agent
+#[hdk_extern]
+pub fn get_agent_bundle_members(agent: AgentPubKey) -> ExternResult<Vec<(ActionHash, BundleMember)>> {
+    let links = get_links(
+        LinkQuery {
+            base: agent.into(),
+            link_type: LinkTypes::AgentToBundleMembers.try_into_filter()?,
+            tag_prefix: None,
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Local,
+    )?;
+
+    let mut members = Vec::new();
+    for link in links {
+        if let Some(action_hash) = link.target.into_action_hash() {
+            if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
+                if let Some(membership) = record.entry().to_app_option::<BundleMember>().map_err(|e| wasm_error!(e))? {
+                    members.push((action_hash, membership));
+                }
+            }
+        }
+    }
+
+    Ok(members)
+}
+
+/// Get bundle members for an agent filtered by Invited status
+#[hdk_extern]
+pub fn get_agent_invite_codes(agent: AgentPubKey) -> ExternResult<Vec<String>> {
+    let links = get_links(
+        LinkQuery {
+            base: agent.into(),
+            link_type: LinkTypes::AgentToBundleMembers.try_into_filter()?,
+            tag_prefix: Some(LinkTag::new("invited:".as_bytes().to_vec())),
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Local,
+    )?;
+
+    let mut invite_codes = Vec::new();
+    for link in links {
+        if let Some(action_hash) = link.target.into_action_hash() {
+            if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
+                if let Some(_) = record.entry().to_app_option::<BundleMember>().map_err(|e| wasm_error!(e))? {
+                    // Extract invite code from tag
+                    let tag_string = String::from_utf8_lossy(&link.tag.0);
+                    if let Some(invite_code) = tag_string.strip_prefix("invited:") {
+                        invite_codes.push(invite_code.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(invite_codes)
+}
+
+/// Input for getting bundle members by status
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetBundleMembersByStatusInput {
+    pub network_seed: String,
+    pub status_filter: Option<String>, // "invited", "active", "revoked", or None for all
+}
+
+/// Get bundle members filtered by status
+#[hdk_extern]
+pub fn get_bundle_members_by_status(input: GetBundleMembersByStatusInput) -> ExternResult<Vec<(ActionHash, BundleMember)>> {
+    let bundle = get_storage_bundle_by_network_seed(input.network_seed)?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Bundle not found".to_string())))?;
+
+    let tag_prefix = input.status_filter.map(|s| LinkTag::new(format!("{}:", s).as_bytes().to_vec()));
+
+    let links = get_links(
+        LinkQuery {
+            base: bundle.0.into(),
+            link_type: LinkTypes::BundleToBundleMembers.try_into_filter()?,
+            tag_prefix,
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Local,
+    )?;
+
+    let mut members = Vec::new();
+    for link in links {
+        if let Some(action_hash) = link.target.into_action_hash() {
+            if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
+                if let Some(membership) = record.entry().to_app_option::<BundleMember>().map_err(|e| wasm_error!(e))? {
+                    members.push((action_hash, membership));
+                }
+            }
+        }
+    }
+
+    Ok(members)
 }

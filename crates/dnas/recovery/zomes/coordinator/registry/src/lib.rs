@@ -4,6 +4,8 @@ pub mod storage_bundle;
 pub use storage_bundle::*;
 pub mod sync;
 pub use sync::*;
+pub mod utils;
+pub use utils::*;
 
 use hdk::prelude::*;
 use registry_integrity::*;

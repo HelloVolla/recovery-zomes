@@ -22,6 +22,8 @@ pub enum EntryTypes {
 pub enum LinkTypes {
     /// Link from member's agent pub key to their RegistryMember entry
     AgentToRegistryMember,
+    /// Link from agent pub key to their BundleMember instances (with tags for filtering)
+    AgentToBundleMembers,
     /// Link from bundle entry hash to its member agents
     BundleToBundleMembers,
     /// Link from agent to bundles they are a member of
