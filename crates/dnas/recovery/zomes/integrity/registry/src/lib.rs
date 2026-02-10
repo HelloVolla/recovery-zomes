@@ -28,6 +28,8 @@ pub enum LinkTypes {
     BundleToBundleMembers,
     /// Link from agent to bundles they are a member of
     AgentToStorageBundles,
+    /// Link from network seed to storage bundle
+    NetworkSeedToStorageBundle,
     /// Link from fixed anchor to registry members
     AllRegistryMembers,
     /// Link from fixed anchor to storage bundles
