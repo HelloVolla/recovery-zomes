@@ -20,8 +20,8 @@ pub enum EntryTypes {
 #[derive(Serialize, Deserialize)]
 #[hdk_link_types]
 pub enum LinkTypes {
-    /// Link from progenitor's agent pub key to registry members
-    ProgenitorToMembers,
+    /// Link from fixed anchor to registry members
+    AllRegistryMembers,
     /// Link from member's agent pub key to their RegistryMember entry
     AgentToMember,
     /// Link from progenitor to their storage bundles

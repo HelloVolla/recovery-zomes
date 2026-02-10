@@ -1,15 +1,18 @@
 use hdk::prelude::*;
 use registry_integrity::*;
-use shared_types::{ InviteMemberInput, MemberStatus, Properties, UpdateMemberByAgentInput };
+use shared_types::{ InviteMemberInput, MemberStatus, UpdateMemberByAgentInput };
+
+/// Get a fixed anchor hash for linking all registry members
+fn get_registry_anchor() -> ExternResult<AnyLinkableHash> {
+    let path = Path::from("all_registry_members");
+    let entry_hash = path.path_entry_hash()?;
+
+    Ok(entry_hash.into())
+}
 
 /// Invite an agent to join the registry (creates entry with Invited status)
 #[hdk_extern]
 pub fn invite_member(input: InviteMemberInput) -> ExternResult<ActionHash> {
-    let info = dna_info()?;
-
-    let props = Properties::try_from(info.modifiers.properties)
-        .map_err(|e| wasm_error!(e))?;
-
     let member = RegistryMember {
         agent: input.agent.clone(),
         display_name: input.display_name,
@@ -18,11 +21,11 @@ pub fn invite_member(input: InviteMemberInput) -> ExternResult<ActionHash> {
 
     let action_hash = create_entry(&EntryTypes::RegistryMember(member))?;
 
-    // Link from progenitor to member entry
+    // Link from fixed anchor to member entry
     create_link(
-        props.progenitor_pub_key,
+        get_registry_anchor()?,
         action_hash.clone(),
-        LinkTypes::ProgenitorToMembers,
+        LinkTypes::AllRegistryMembers,
         (),
     )?;
 
@@ -40,15 +43,10 @@ pub fn invite_member(input: InviteMemberInput) -> ExternResult<ActionHash> {
 /// Get all registry members for the current agent
 #[hdk_extern]
 pub fn get_registry_members(_: ()) -> ExternResult<Vec<(ActionHash, RegistryMember)>> {
-    let info = dna_info()?;
-
-    let props = Properties::try_from(info.modifiers.properties)
-        .map_err(|e| wasm_error!(e))?;
-
     let links = get_links(
         LinkQuery {
-            base: props.progenitor_pub_key.into(),
-            link_type: LinkTypes::ProgenitorToMembers.try_into_filter()?,
+            base: get_registry_anchor()?,
+            link_type: LinkTypes::AllRegistryMembers.try_into_filter()?,
             tag_prefix: None,
             before: None,
             after: None,
@@ -227,16 +225,11 @@ pub fn is_active_member(agent: AgentPubKey) -> ExternResult<bool> {
 /// Returns true if this is a registry cell, false otherwise.
 #[hdk_extern]
 pub fn is_registry_cell(_: ()) -> ExternResult<bool> {
-    let info = dna_info()?;
-
-    let props = Properties::try_from(info.modifiers.properties)
-        .map_err(|e| wasm_error!(e))?;
-
-    // Check if there are any registry members linked from the progenitor
+    // Check if there are any registry members linked from the fixed anchor
     let links = get_links(
         LinkQuery {
-            base: props.progenitor_pub_key.into(),
-            link_type: LinkTypes::ProgenitorToMembers.try_into_filter()?,
+            base: get_registry_anchor()?,
+            link_type: LinkTypes::AllRegistryMembers.try_into_filter()?,
             tag_prefix: None,
             before: None,
             after: None,
