@@ -10,11 +10,17 @@ pub struct RegisterBundleInput {
     pub network_pub_key: Vec<u8>,
 }
 
+/// Get a fixed anchor hash for linking all storage bundles
+fn get_storage_bundle_anchor() -> ExternResult<AnyLinkableHash> {
+    let path = Path::from("all_storage_bundles");
+    let entry_hash = path.path_entry_hash()?;
+
+    Ok(entry_hash.into())
+}
+
 /// Register a new storage bundle in the registry
 #[hdk_extern]
 pub fn register_storage_bundle(input: RegisterBundleInput) -> ExternResult<ActionHash> {
-    let my_agent = agent_info()?.agent_initial_pubkey;
-
     let bundle_info = StorageBundle {
         network_seed: input.network_seed.clone(),
         progenitor: input.progenitor,
@@ -23,26 +29,24 @@ pub fn register_storage_bundle(input: RegisterBundleInput) -> ExternResult<Actio
 
     let action_hash = create_entry(&EntryTypes::StorageBundle(bundle_info))?;
 
-    // Create link from progenitor to bundle
+    // Create link from fixed anchor to bundle entry
     create_link(
-        my_agent,
+        get_storage_bundle_anchor()?,
         action_hash.clone(),
-        LinkTypes::ProgenitorToBundles,
-        input.network_seed.as_bytes().to_vec(), // Store network_seed in link tag for filtering
+        LinkTypes::AllStorageBundles,
+        (),
     )?;
 
     Ok(action_hash)
 }
 
-/// Get all storage bundles registered by the current agent
+/// Get all storage bundles
 #[hdk_extern]
-pub fn get_storage_bundles(_: ()) -> ExternResult<Vec<(ActionHash, StorageBundle)>> {
-    let my_agent = agent_info()?.agent_initial_pubkey;
-
+pub fn get_all_storage_bundles(_: ()) -> ExternResult<Vec<(ActionHash, StorageBundle)>> {
     let links = get_links(
         LinkQuery {
-            base: my_agent.into(),
-            link_type: LinkTypes::ProgenitorToBundles.try_into_filter()?,
+            base: get_storage_bundle_anchor()?,
+            link_type: LinkTypes::AllStorageBundles.try_into_filter()?,
             tag_prefix: None,
             before: None,
             after: None,
@@ -69,7 +73,7 @@ pub fn get_storage_bundles(_: ()) -> ExternResult<Vec<(ActionHash, StorageBundle
 /// Get a storage bundle by its network_seed
 #[hdk_extern]
 pub fn get_storage_bundle_by_network_seed(network_seed: String) -> ExternResult<Option<(ActionHash, StorageBundle)>> {
-    let bundles = get_storage_bundles(())?;
+    let bundles = get_all_storage_bundles(())?;
 
     for (action_hash, bundle_info) in bundles {
         if bundle_info.network_seed == network_seed {
