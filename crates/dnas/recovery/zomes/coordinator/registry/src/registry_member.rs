@@ -221,3 +221,29 @@ pub fn is_active_member(agent: AgentPubKey) -> ExternResult<bool> {
     }
     Ok(false)
 }
+
+/// Check if the current cell is a registry cell
+///
+/// Returns true if this is a registry cell, false otherwise.
+#[hdk_extern]
+pub fn is_registry_cell(_: ()) -> ExternResult<bool> {
+    let info = dna_info()?;
+
+    let props = Properties::try_from(info.modifiers.properties)
+        .map_err(|e| wasm_error!(e))?;
+
+    // Check if there are any registry members linked from the progenitor
+    let links = get_links(
+        LinkQuery {
+            base: props.progenitor_pub_key.into(),
+            link_type: LinkTypes::ProgenitorToMembers.try_into_filter()?,
+            tag_prefix: None,
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Local,
+    )?;
+
+    Ok(!links.is_empty())
+}
