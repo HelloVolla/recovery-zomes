@@ -183,8 +183,8 @@ pub fn get_bundle_members(network_seed: String) -> ExternResult<Vec<(ActionHash,
     for link in links {
         if let Some(action_hash) = link.target.into_action_hash() {
             if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
-                if let Some(membership) = record.entry().to_app_option::<BundleMember>().map_err(|e| wasm_error!(e))? {
-                    members.push((action_hash, membership));
+                if let Some(member) = record.entry().to_app_option::<BundleMember>().map_err(|e| wasm_error!(e))? {
+                    members.push((action_hash, member));
                 }
             }
         }
@@ -195,8 +195,8 @@ pub fn get_bundle_members(network_seed: String) -> ExternResult<Vec<(ActionHash,
 
 /// Remove an agent from a bundle
 #[hdk_extern]
-pub fn remove_agent_from_bundle(membership_action_hash: ActionHash) -> ExternResult<ActionHash> {
-    delete_entry(membership_action_hash)
+pub fn remove_agent_from_bundle(member_action_hash: ActionHash) -> ExternResult<ActionHash> {
+    delete_entry(member_action_hash)
 }
 
 /// Update the status of a bundle member
@@ -209,21 +209,21 @@ pub struct UpdateBundleMemberStatusInput {
 #[hdk_extern]
 pub fn update_bundle_member_status(input: UpdateBundleMemberStatusInput) -> ExternResult<ActionHash> {
     let record = get(input.member_action_hash.clone(), GetOptions::default())?
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Membership not found".to_string())))?;
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Member not found".to_string())))?;
 
-    let mut membership: BundleMember = record
+    let mut member: BundleMember = record
         .entry()
         .to_app_option()
         .map_err(|e| wasm_error!(e))?
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Invalid membership entry".to_string())))?;
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Invalid member entry".to_string())))?;
 
-    membership.status = input.new_status.clone();
+    member.status = input.new_status.clone();
 
-    let new_action_hash = update_entry(input.member_action_hash.clone(), &EntryTypes::BundleMember(membership.clone()))?;
+    let new_action_hash = update_entry(input.member_action_hash.clone(), &EntryTypes::BundleMember(member.clone()))?;
 
     // Update link tags for AgentToBundleMembers
     update_member_links(
-        membership.agent.clone(),
+        member.agent.clone(),
         input.member_action_hash.clone(),
         new_action_hash.clone(),
         &input.new_status,
@@ -231,7 +231,7 @@ pub fn update_bundle_member_status(input: UpdateBundleMemberStatusInput) -> Exte
     )?;
 
     // Update link tags for BundleToBundleMembers
-    if let Some((bundle_action_hash, _)) = get_storage_bundle_by_network_seed(membership.network_seed.clone())? {
+    if let Some((bundle_action_hash, _)) = get_storage_bundle_by_network_seed(member.network_seed.clone())? {
         update_member_links(
             bundle_action_hash,
             input.member_action_hash.clone(),
@@ -255,7 +255,7 @@ pub struct UpdateMemberStatusByNetworkSeedInput {
 pub fn update_member_status_by_network_seed(input: UpdateMemberStatusByNetworkSeedInput) -> ExternResult<ActionHash> {
     let my_agent = agent_info()?.agent_initial_pubkey;
 
-    // Get links from the agent to their bundle memberships
+    // Get links from the agent to their bundle members
     let links = get_links(
         LinkQuery {
             base: my_agent.into(),
@@ -268,14 +268,14 @@ pub fn update_member_status_by_network_seed(input: UpdateMemberStatusByNetworkSe
         GetStrategy::Local,
     )?;
 
-    // Find the membership for this specific bundle
+    // Find the member for this specific bundle
     for link in links {
         if let Some(action_hash) = link.target.into_action_hash() {
             if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
-                if let Some(mut membership) = record.entry().to_app_option::<BundleMember>().map_err(|e| wasm_error!(e))? {
-                    if membership.network_seed == input.network_seed {
-                        membership.status = input.status;
-                        return update_entry(action_hash, &EntryTypes::BundleMember(membership));
+                if let Some(mut member) = record.entry().to_app_option::<BundleMember>().map_err(|e| wasm_error!(e))? {
+                    if member.network_seed == input.network_seed {
+                        member.status = input.status;
+                        return update_entry(action_hash, &EntryTypes::BundleMember(member));
                     }
                 }
             }
@@ -283,7 +283,7 @@ pub fn update_member_status_by_network_seed(input: UpdateMemberStatusByNetworkSe
     }
 
     Err(wasm_error!(WasmErrorInner::Guest(format!(
-        "No membership found for network_seed: {}",
+        "No member found for network_seed: {}",
         input.network_seed
     ))))
 }
@@ -307,8 +307,8 @@ pub fn get_agent_bundle_members(agent: AgentPubKey) -> ExternResult<Vec<(ActionH
     for link in links {
         if let Some(action_hash) = link.target.into_action_hash() {
             if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
-                if let Some(membership) = record.entry().to_app_option::<BundleMember>().map_err(|e| wasm_error!(e))? {
-                    members.push((action_hash, membership));
+                if let Some(member) = record.entry().to_app_option::<BundleMember>().map_err(|e| wasm_error!(e))? {
+                    members.push((action_hash, member));
                 }
             }
         }
@@ -381,8 +381,8 @@ pub fn get_bundle_members_by_status(input: GetBundleMembersByStatusInput) -> Ext
     for link in links {
         if let Some(action_hash) = link.target.into_action_hash() {
             if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
-                if let Some(membership) = record.entry().to_app_option::<BundleMember>().map_err(|e| wasm_error!(e))? {
-                    members.push((action_hash, membership));
+                if let Some(member) = record.entry().to_app_option::<BundleMember>().map_err(|e| wasm_error!(e))? {
+                    members.push((action_hash, member));
                 }
             }
         }

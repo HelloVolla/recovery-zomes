@@ -45,8 +45,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::StorageBundle(bundle) => {
                     validate_create_storage_bundle_info(EntryCreationAction::Create(action), bundle)
                 }
-                EntryTypes::BundleMember(membership) => {
-                    validate_create_bundle_member(EntryCreationAction::Create(action), membership)
+                EntryTypes::BundleMember(member) => {
+                    validate_create_bundle_member(EntryCreationAction::Create(action), member)
                 }
             },
             OpEntry::UpdateEntry { app_entry, action, .. } => match app_entry {
@@ -54,8 +54,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::StorageBundle(bundle) => {
                     validate_create_storage_bundle_info(EntryCreationAction::Update(action), bundle)
                 }
-                EntryTypes::BundleMember(membership) => {
-                    validate_create_bundle_member(EntryCreationAction::Update(action), membership)
+                EntryTypes::BundleMember(member) => {
+                    validate_create_bundle_member(EntryCreationAction::Update(action), member)
                 }
             },
             _ => Ok(ValidateCallbackResult::Valid),

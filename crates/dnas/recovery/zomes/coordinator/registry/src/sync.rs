@@ -20,19 +20,19 @@ pub fn get_my_assigned_bundles(_: ()) -> ExternResult<Vec<(ActionHash, BundleMem
         GetStrategy::Local,
     )?;
 
-    let mut memberships = Vec::new();
+    let mut members = Vec::new();
 
     for link in links {
         if let Some(action_hash) = link.target.into_action_hash() {
             if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
-                if let Some(membership) = record.entry().to_app_option::<BundleMember>().map_err(|e| wasm_error!(e))? {
-                    memberships.push((action_hash, membership));
+                if let Some(member) = record.entry().to_app_option::<BundleMember>().map_err(|e| wasm_error!(e))? {
+                    members.push((action_hash, member));
                 }
             }
         }
     }
 
-    Ok(memberships)
+    Ok(members)
 }
 
 /// Get bundles that an agent is invited to but hasn't accepted yet (status = Invited)
@@ -42,28 +42,28 @@ pub fn get_invited_bundles(_: ()) -> ExternResult<Vec<(ActionHash, BundleMember)
 
     let invited: Vec<(ActionHash, BundleMember)> = my_bundles
         .into_iter()
-        .filter(|(_, membership)| matches!(membership.status, MemberStatus::Invited(_)))
+        .filter(|(_, member)| matches!(member.status, MemberStatus::Invited(_)))
         .collect();
 
     Ok(invited)
 }
 
-/// Mark a bundle as cloned/active by updating the membership status.
+/// Mark a bundle as cloned/active by updating the member status.
 /// This should be called by a host agent after they've cloned the bundle DNA.
 #[hdk_extern]
-pub fn mark_bundle_as_cloned(membership_action_hash: ActionHash) -> ExternResult<ActionHash> {
-    let record = get(membership_action_hash.clone(), GetOptions::default())?
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Membership not found".to_string())))?;
+pub fn mark_bundle_as_cloned(member_action_hash: ActionHash) -> ExternResult<ActionHash> {
+    let record = get(member_action_hash.clone(), GetOptions::default())?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Member not found".to_string())))?;
 
     let mut member: BundleMember = record
         .entry()
         .to_app_option()
         .map_err(|e| wasm_error!(e))?
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Invalid membership entry".to_string())))?;
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Invalid member entry".to_string())))?;
 
     member.status = MemberStatus::Active;
 
-    update_entry(membership_action_hash, &EntryTypes::BundleMember(member))
+    update_entry(member_action_hash, &EntryTypes::BundleMember(member))
 }
 
 /// Data structure for new bundle notification signal
@@ -71,7 +71,7 @@ pub fn mark_bundle_as_cloned(membership_action_hash: ActionHash) -> ExternResult
 pub struct NewBundleNotification {
     pub bundle_id: String,
     pub bundle_name: String,
-    pub membership_action_hash: ActionHash,
+    pub member_action_hash: ActionHash,
 }
 
 /// Signal target agents about a new bundle they should clone.
@@ -97,7 +97,7 @@ pub struct NotifyAgentsInput {
     pub bundle_id: String,
     pub bundle_name: String,
     pub target_agents: Vec<AgentPubKey>,
-    pub membership_action_hashes: Vec<ActionHash>,
+    pub member_action_hashes: Vec<ActionHash>,
 }
 
 /// Send remote call to notify agents about a new bundle
@@ -105,11 +105,11 @@ pub struct NotifyAgentsInput {
 pub fn notify_agents_of_new_bundle(input: NotifyAgentsInput) -> ExternResult<Vec<ExternResult<()>>> {
     let mut results = Vec::new();
 
-    for (agent, membership_hash) in input.target_agents.iter().zip(input.membership_action_hashes.iter()) {
+    for (agent, member_hash) in input.target_agents.iter().zip(input.member_action_hashes.iter()) {
         let notification = NewBundleNotification {
             bundle_id: input.bundle_id.clone(),
             bundle_name: input.bundle_name.clone(),
-            membership_action_hash: membership_hash.clone(),
+            member_action_hash: member_hash.clone(),
         };
 
         let result = call_remote(

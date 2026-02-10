@@ -7,7 +7,7 @@ use shared_types::MemberStatus;
 pub struct BundleMember {
     /// The agent who is a member of this bundle
     pub agent: AgentPubKey,
-    /// The network seed of the bundle this membership is for
+    /// The network seed of the bundle this member is in
     pub network_seed: String,
     /// Status of the membership
     pub status: MemberStatus,
@@ -15,9 +15,9 @@ pub struct BundleMember {
 
 pub fn validate_create_bundle_member(
     _action: EntryCreationAction,
-    membership: BundleMember,
+    member: BundleMember,
 ) -> ExternResult<ValidateCallbackResult> {
-    if membership.network_seed.is_empty() {
+    if member.network_seed.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "network_seed cannot be empty".to_string(),
         ));

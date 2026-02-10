@@ -181,7 +181,7 @@ pub fn accept_member_by_agent(agent: AgentPubKey) -> ExternResult<ActionHash> {
     })
 }
 
-/// Revoke a membership by action hash
+/// Revoke a member by action hash
 #[hdk_extern]
 pub fn revoke_member(member_action_hash: ActionHash) -> ExternResult<ActionHash> {
     update_member_status(UpdateMemberStatusInput {
@@ -190,7 +190,7 @@ pub fn revoke_member(member_action_hash: ActionHash) -> ExternResult<ActionHash>
     })
 }
 
-/// Revoke a membership by agent pub key
+/// Revoke a member by agent pub key
 #[hdk_extern]
 pub fn revoke_member_by_agent(agent: AgentPubKey) -> ExternResult<ActionHash> {
     update_member_status_by_agent(UpdateMemberByAgentInput {

@@ -48,13 +48,13 @@ pub enum Signal {
     /// An agent was added to a bundle
     AgentAddedToBundle {
         action: SignedActionHashed,
-        membership: BundleMember,
+        member: BundleMember,
     },
     /// A new bundle notification was received
     NewBundleNotification {
         bundle_id: String,
         bundle_name: String,
-        membership_action_hash: ActionHash,
+        member_action_hash: ActionHash,
     },
     /// Generic entry created signal
     EntryCreated {
