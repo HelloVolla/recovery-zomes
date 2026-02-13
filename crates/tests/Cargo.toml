@@ -12,18 +12,15 @@ serde = { workspace = true, features = ["derive"] }
 holochain = { workspace = true, features = ["sweettest"] }
 tokio = { workspace = true, features = ["full"] }
 hdk = { workspace = true }
-storage_integrity = { workspace = true }
-membrane_integrity = { workspace = true }
-agent_joined_integrity = { workspace = true }
+storage_integrity = { workspace = true, optional = true }
+membrane_integrity = { workspace = true, optional = true }
+agent_joined_integrity = { workspace = true, optional = true }
 shared_types = { workspace = true }
 serde_yaml = "0.9"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
 rand = "0.8"
 
 [features]
-default = [
-    "single_agent",
-    "multi_agent",
-]
-single_agent = []
-multi_agent = []
+default = []
+single_agent = ["dep:storage_integrity"]
+multi_agent = ["dep:agent_joined_integrity"]
