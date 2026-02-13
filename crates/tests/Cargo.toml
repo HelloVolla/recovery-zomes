@@ -15,6 +15,7 @@ hdk = { workspace = true }
 storage_integrity = { workspace = true, optional = true }
 membrane_integrity = { workspace = true, optional = true }
 agent_joined_integrity = { workspace = true, optional = true }
+registry_integrity = { workspace = true, optional = true }
 shared_types = { workspace = true }
 serde_yaml = "0.9"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
@@ -24,3 +25,4 @@ rand = "0.8"
 default = []
 single_agent = ["dep:storage_integrity"]
 multi_agent = ["dep:agent_joined_integrity"]
+registry_test = ["dep:registry_integrity"]
