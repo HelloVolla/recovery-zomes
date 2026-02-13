@@ -1,0 +1,16 @@
+[package]
+name = "membrane"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "membrane"
+
+[dependencies]
+hdk = { workspace = true }
+serde = { workspace = true }
+shared_types = { workspace = true }
+ed25519-dalek = { workspace = true }
+membrane_integrity = { workspace = true }
+holochain_serialized_bytes = { workspace = true }

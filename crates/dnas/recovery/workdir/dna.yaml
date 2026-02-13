@@ -9,6 +9,10 @@ integrity:
       hash: ~
       path: "../../../../target/wasm32-unknown-unknown/release/agent_joined_integrity.wasm"
       dependencies: ~
+    - name: membrane_integrity
+      hash: ~
+      path: "../../../../target/wasm32-unknown-unknown/release/membrane_integrity.wasm"
+      dependencies: ~
     - name: registry_integrity
       hash: ~
       path: "../../../../target/wasm32-unknown-unknown/release/registry_integrity.wasm"
@@ -24,6 +28,11 @@ coordinator:
       path: "../../../../target/wasm32-unknown-unknown/release/agent_joined.wasm"
       dependencies:
         - name: agent_joined_integrity
+    - name: membrane
+      hash: ~
+      path: "../../../../target/wasm32-unknown-unknown/release/membrane.wasm"
+      dependencies:
+        - name: membrane_integrity
     - name: registry
       hash: ~
       path: "../../../../target/wasm32-unknown-unknown/release/registry.wasm"
