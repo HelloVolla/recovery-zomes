@@ -13,6 +13,8 @@ holochain = { workspace = true, features = ["sweettest"] }
 tokio = { workspace = true, features = ["full"] }
 hdk = { workspace = true }
 storage_integrity = { workspace = true }
+membrane_integrity = { workspace = true }
+agent_joined_integrity = { workspace = true }
 shared_types = { workspace = true }
 serde_yaml = "0.9"
 ed25519-dalek = { version = "2", features = ["rand_core"] }

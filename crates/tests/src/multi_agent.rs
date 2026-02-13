@@ -25,7 +25,7 @@ async fn generate_membrane_proof_via_zome(
 
     let proof_bytes: SerializedBytes = conductor
         .raw_handle()
-        .easy_call_zome(agent, None, cell_id, ZomeName::from("storage"), "generate_membrane_proof", membrane_proof_data)
+        .easy_call_zome(agent, None, cell_id, ZomeName::from("membrane"), "generate_membrane_proof", membrane_proof_data)
         .await
         .expect("generate_membrane_proof should succeed");
 
@@ -116,17 +116,17 @@ async fn test_multi_agent_membrane_proof_connection() {
     let signing_key_seed = signing_key.to_bytes().to_vec();
     let _private_action_hash: ActionHash = conductors[0]
         .raw_handle()
-        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "commit_private_signing_key", signing_key_seed)
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("membrane"), "commit_private_signing_key", signing_key_seed)
         .await
         .unwrap();
 
     // Verify agent1 can make zome calls
-    let hello_response: String = conductors[0]
+    let ping_response: String = conductors[0]
         .raw_handle()
-        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "hello_world", "Agent1".to_string())
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "ping", serde_bytes::ByteBuf::from(vec![]))
         .await
         .unwrap();
-    assert!(hello_response.contains("Agent1"));
+    assert_eq!(ping_response, "pong");
 
     // Create membrane proof for agent2 using the zome function
     let membrane_proof = generate_membrane_proof_via_zome(
@@ -177,12 +177,12 @@ async fn test_multi_agent_membrane_proof_connection() {
         _ => panic!("Expected provisioned cell"),
     };
 
-    let hello_response2: String = conductors[1]
+    let ping_response2: String = conductors[1]
         .raw_handle()
-        .easy_call_zome(&agents[1], None, cell2_id.clone(), ZomeName::from("storage"), "hello_world", "Agent2".to_string())
+        .easy_call_zome(&agents[1], None, cell2_id.clone(), ZomeName::from("storage"), "ping", serde_bytes::ByteBuf::from(vec![]))
         .await
         .unwrap();
-    assert!(hello_response2.contains("Agent2"));
+    assert_eq!(ping_response2, "pong");
 
     // Verify both agents are on the same DNA
     assert_eq!(cell1_id.dna_hash(), cell2_id.dna_hash(), "Both agents should be on the same DNA");
@@ -362,7 +362,7 @@ async fn test_remote_call_without_cap_grant_fails() {
     let signing_key_seed = signing_key.to_bytes().to_vec();
     let _private_action_hash: ActionHash = conductors[0]
         .raw_handle()
-        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "commit_private_signing_key", signing_key_seed)
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("membrane"), "commit_private_signing_key", signing_key_seed)
         .await
         .unwrap();
 
@@ -423,7 +423,7 @@ async fn test_remote_call_without_cap_grant_fails() {
         target_agent: agents[0].clone(),
         zome_name: "storage".to_string(),
         fn_name: "hello_world".to_string(),
-        payload: ExternIO::encode("Remote").unwrap(),
+        payload: ExternIO::encode("world".to_string()).unwrap(),
         cap_secret: None,
     };
 
@@ -517,7 +517,7 @@ async fn test_remote_call_with_unrestricted_cap_grant_succeeds() {
     let signing_key_seed = signing_key.to_bytes().to_vec();
     let _private_action_hash: ActionHash = conductors[0]
         .raw_handle()
-        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "commit_private_signing_key", signing_key_seed)
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("membrane"), "commit_private_signing_key", signing_key_seed)
         .await
         .unwrap();
 
@@ -578,7 +578,7 @@ async fn test_remote_call_with_unrestricted_cap_grant_succeeds() {
         target_agent: agents[0].clone(),
         zome_name: "storage".to_string(),
         fn_name: "ping".to_string(),
-        payload: ExternIO::encode(()).unwrap(),
+        payload: ExternIO::encode(serde_bytes::ByteBuf::from(vec![])).unwrap(),
         cap_secret: None,
     };
 
@@ -604,22 +604,7 @@ async fn test_remote_call_with_unrestricted_cap_grant_succeeds() {
 /// 6. Agent1 verifies agent2's profile exists
 #[tokio::test(flavor = "multi_thread")]
 async fn test_agent_join_verification_via_profile() {
-    use std::collections::BTreeMap;
-
-    // Profile struct matching profiles zome
-    #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-    struct Profile {
-        nickname: String,
-        fields: BTreeMap<String, String>,
-    }
-
-    // ZomeFnInput wrapper for profiles zome
-    #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-    struct ZomeFnInput<T> {
-        input: T,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        local: Option<bool>,
-    }
+    use agent_joined_integrity::AgentJoined;
 
     // Set up two separate conductors for two agents
     let conductors = SweetConductorBatch::from_config(2, SweetConductorConfig::standard()).await;
@@ -699,7 +684,7 @@ async fn test_agent_join_verification_via_profile() {
     let signing_key_seed = signing_key.to_bytes().to_vec();
     let _private_action_hash: ActionHash = conductors[0]
         .raw_handle()
-        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("storage"), "commit_private_signing_key", signing_key_seed)
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("membrane"), "commit_private_signing_key", signing_key_seed)
         .await
         .unwrap();
 
@@ -755,43 +740,36 @@ async fn test_agent_join_verification_via_profile() {
     // Exchange peer info so the agents can find each other
     conductors.exchange_peer_info().await;
 
-    // Agent2 creates a profile to indicate they have joined
-    let profile = Profile {
-        nickname: "Agent2JoinedSuccessfully".to_string(),
-        fields: BTreeMap::new(),
-    };
-
-    let _profile_record: Record = conductors[1]
+    // Agent2 signals that they have joined
+    let _action_hash: ActionHash = conductors[1]
         .raw_handle()
-        .easy_call_zome(&agents[1], None, cell2_id.clone(), ZomeName::from("profiles"), "create_profile", profile)
+        .easy_call_zome(&agents[1], None, cell2_id.clone(), ZomeName::from("agent_joined"), "signal_joined", ())
         .await
-        .expect("Agent2 should be able to create a profile");
+        .expect("Agent2 should be able to signal joined");
 
     // Give some time for gossip to propagate
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
-    // Agent1 queries for all agents with profiles
-    let input = ZomeFnInput::<()> { input: (), local: None };
-    let agents_with_profiles: Vec<AgentPubKey> = conductors[0]
+    // Agent1 queries for all joined agents
+    let joined_agents: Vec<(ActionHash, AgentJoined)> = conductors[0]
         .raw_handle()
-        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("profiles"), "get_agents_with_profile", input)
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("agent_joined"), "get_joined_agents", ())
         .await
-        .expect("Should be able to get agents with profile");
+        .expect("Should be able to get joined agents");
 
     // Verify agent2 is in the list
     assert!(
-        agents_with_profiles.contains(&agents[1]),
-        "Agent2 should appear in the list of agents with profiles"
+        joined_agents.iter().any(|(_, entry)| entry.agent == agents[1]),
+        "Agent2 should appear in the list of joined agents"
     );
 
-    // Agent1 directly queries for agent2's profile
-    let input = ZomeFnInput { input: agents[1].clone(), local: None };
-    let agent2_profile: Option<Record> = conductors[0]
+    // Agent1 directly checks if agent2 joined
+    let has_joined: bool = conductors[0]
         .raw_handle()
-        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("profiles"), "get_agent_profile", input)
+        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("agent_joined"), "has_agent_joined", agents[1].clone())
         .await
-        .expect("Should be able to get agent profile");
+        .expect("Should be able to check if agent joined");
 
-    // Verify the profile exists
-    assert!(agent2_profile.is_some(), "Agent2's profile should be found - this confirms they successfully joined");
+    // Verify the check returns true
+    assert!(has_joined, "Agent2 should be found - this confirms they successfully joined");
 }
