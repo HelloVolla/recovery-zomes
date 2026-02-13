@@ -390,3 +390,55 @@ pub fn get_bundle_members_by_status(input: GetBundleMembersByStatusInput) -> Ext
 
     Ok(members)
 }
+
+/// Mark an invite as fulfilled using just the invite code string
+#[hdk_extern]
+pub fn mark_invite_fulfilled_by_code(input: shared_types::GetInviteCodeByCodeInput) -> ExternResult<ActionHash> {
+    let tag_string = format!("invited:{}", input.code);
+    let tag = LinkTag::new(tag_string.as_bytes().to_vec());
+
+    let links = get_links(
+        LinkQuery {
+            base: input.agent.clone().into(),
+            link_type: LinkTypes::AgentToBundleMembers.try_into_filter()?,
+            tag_prefix: Some(tag),
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Local,
+    )?;
+
+    let link = links.first().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "No pending invite found with code {} for agent {}",
+            input.code, input.agent
+        )))
+    })?;
+
+    let member_action_hash = link.target.clone().into_action_hash().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest("Link target is not an action hash".to_string()))
+    })?;
+
+    let record = get(member_action_hash.clone(), GetOptions::default())?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Member entry not found".to_string())))?;
+
+    let member: BundleMember = record.entry().to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Invalid member entry".to_string())))?;
+
+    if let MemberStatus::Invited(code) = &member.status {
+        if code != &input.code {
+            return Err(wasm_error!(WasmErrorInner::Guest("Invite code mismatch in entry".to_string())));
+        }
+    } else {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!("Member status is not Invited, it is {:?}", member.status))));
+    }
+
+    let update_input = UpdateBundleMemberStatusInput {
+        member_action_hash,
+        new_status: MemberStatus::Active,
+    };
+
+    update_bundle_member_status(update_input)
+}
