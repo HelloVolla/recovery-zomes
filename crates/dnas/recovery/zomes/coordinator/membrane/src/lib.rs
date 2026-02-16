@@ -20,21 +20,8 @@ pub fn init() -> ExternResult<InitCallbackResult> {
 
 #[hdk_extern]
 pub fn generate_membrane_proof(input: MembraneProofData) -> ExternResult<SerializedBytes> {
-    use ed25519_dalek::SigningKey;
-
-    let private_key_entry = get_private_signing_key(())?
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Private signing key not found on source chain".to_string())))?;
-
-    let seed_bytes: Vec<u8> = private_key_entry.seed.bytes().to_vec();
-    if seed_bytes.len() != 32 {
-        return Err(wasm_error!(WasmErrorInner::Guest("Private signing key seed must be 32 bytes".to_string())));
-    }
-    let seed_array: [u8; 32] = seed_bytes.try_into()
-        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Failed to convert seed to array".to_string())))?;
-    let signing_key = SigningKey::from_bytes(&seed_array);
-
-    let proof = input.get_signed_membrane_proof_bytes(&signing_key)?;
-    Ok(proof)
+    let seed_array = get_signing_key_seed()?;
+    input.get_signed_membrane_proof_bytes(&seed_array)
 }
 
 /// Commit the private signing key (seed) to the source chain as a private entry.
@@ -78,14 +65,22 @@ pub fn get_private_signing_key(_: ()) -> ExternResult<Option<membrane_integrity:
     Ok(None)
 }
 
-/// Generates an invite code for another agent to join this cell's network.
-///
-/// This function creates an invite code that contains:
-/// - The network seed identifying the storage bundle
-/// - The progenitor's public key
-/// - The network signing public key for signature verification
-/// - An optional membrane proof containing the signature authorizing the specified agent to join
-///   (generated using the private key stored on the source chain)
+/// Helper to retrieve the 32-byte signing key seed from the source chain.
+fn get_signing_key_seed() -> ExternResult<[u8; 32]> {
+    let private_key_entry = get_private_signing_key(())?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Private signing key not found on source chain".to_string())))?;
+
+    let seed_bytes: Vec<u8> = private_key_entry.seed.bytes().to_vec();
+    if seed_bytes.len() != 32 {
+        return Err(wasm_error!(WasmErrorInner::Guest("Private signing key seed must be 32 bytes".to_string())));
+    }
+    let seed_array: [u8; 32] = seed_bytes.try_into()
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Failed to convert seed to array".to_string())))?;
+    Ok(seed_array)
+}
+
+/// Wrapper around `InviteCode::generate` that gathers cell info from the HDK
+/// and delegates to the pure function in shared-types.
 ///
 /// # Arguments
 ///
@@ -97,45 +92,25 @@ pub fn get_private_signing_key(_: ()) -> ExternResult<Option<membrane_integrity:
 /// An InviteCode instance containing all information needed to join this network.
 #[hdk_extern]
 pub fn generate_invite_code(input: GenerateInviteCodeInput) -> ExternResult<InviteCode> {
-    // Get the DNA info to extract network seed and properties
+    // Gather cell info from the HDK
     let dna_info = dna_info()?;
     let network_seed = dna_info.modifiers.network_seed.clone();
-
-    // Get the current agent's public key (the progenitor calling this function)
     let agent_info = agent_info()?;
     let progenitor_pub_key: Vec<u8> = agent_info.agent_initial_pubkey.get_raw_39().to_vec();
 
-    // Deserialize the properties to get the network_pub_key
     let properties = Properties::try_from(dna_info.modifiers.properties.clone())
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Failed to deserialize DNA properties: {:?}", e))))?;
-
     let network_pub_key = properties.network_pub_key.clone();
 
-    let mut membrane_proof_bytes = None;
+    // Get the signing key seed from the source chain
+    let seed_array = get_signing_key_seed()?;
 
-    if let Some(for_agent_pub_key) = input.for_agent_pub_key {
-        // Parse the target agent's public key
-        let for_agent = AgentPubKey::try_from_raw_39(for_agent_pub_key)
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Invalid target agent pub key format: {:?}", e))))?;
-
-        // Create membrane proof data
-        let membrane_proof_data = shared_types::MembraneProofData {
-            network_seed: network_seed.clone(),
-            for_agent,
-            network_pub_key: network_pub_key.clone(),
-        };
-
-        // Generate the membrane proof using the stored private signing key
-        // If this fails, leave membrane_proof as None
-        if let Ok(proof) = generate_membrane_proof(membrane_proof_data) {
-            membrane_proof_bytes = Some(proof.bytes().to_vec());
-        }
-    }
-
-    Ok(InviteCode {
+    // Delegate to the pure function in shared-types
+    InviteCode::generate(
         network_seed,
         progenitor_pub_key,
         network_pub_key,
-        membrane_proof: membrane_proof_bytes,
-    })
+        &seed_array,
+        input.for_agent_pub_key,
+    )
 }

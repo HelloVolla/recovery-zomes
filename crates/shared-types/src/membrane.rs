@@ -11,10 +11,20 @@ pub struct MembraneProofData {
 }
 
 impl MembraneProofData {
-    pub fn get_signed_membrane_proof_bytes(&self, signing_key: &SigningKey) -> ExternResult<SerializedBytes> {
+    /// Generates a signed membrane proof from a signing key seed.
+    ///
+    /// # Arguments
+    ///
+    /// * `signing_key_seed` - A 32-byte ed25519 signing key seed
+    ///
+    /// # Returns
+    ///
+    /// The signed membrane proof as `SerializedBytes`
+    pub fn get_signed_membrane_proof_bytes(&self, signing_key_seed: &[u8; 32]) -> ExternResult<SerializedBytes> {
         // Serialize and sign the membrane proof data
         let data_bytes = holochain_serialized_bytes::encode(&self)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Serialization error".to_string())))?;
+        let signing_key = SigningKey::from_bytes(signing_key_seed);
         let signature = signing_key.sign(&data_bytes);
 
         // Create the membrane proof envelope with the action hash for DHT lookup

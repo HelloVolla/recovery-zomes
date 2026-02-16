@@ -11,6 +11,5 @@ name = "membrane"
 hdk = { workspace = true }
 serde = { workspace = true }
 shared_types = { workspace = true }
-ed25519-dalek = { workspace = true }
 membrane_integrity = { workspace = true }
 holochain_serialized_bytes = { workspace = true }

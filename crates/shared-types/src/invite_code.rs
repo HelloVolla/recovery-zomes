@@ -44,6 +44,59 @@ pub struct InviteCode {
 }
 
 impl InviteCode {
+    /// Generates an invite code from the given parameters.
+    ///
+    /// This is a pure function that does not depend on any HDK/Holochain runtime.
+    /// The zome wrapper is responsible for gathering the network seed, progenitor key,
+    /// network pub key, and signing key seed from the Holochain cell.
+    ///
+    /// # Arguments
+    ///
+    /// * `network_seed` - The network seed identifying this storage bundle
+    /// * `progenitor_pub_key` - The progenitor's public key (39-byte raw format)
+    /// * `network_pub_key` - The network signing public key for signature verification
+    /// * `signing_key_seed` - The 32-byte ed25519 signing key seed for generating membrane proofs
+    /// * `for_agent_pub_key` - Optional target agent's public key (39-byte raw format).
+    ///   If provided, a membrane proof will be generated and included in the invite code.
+    ///
+    /// # Returns
+    ///
+    /// An `InviteCode` instance containing all information needed to join this network.
+    pub fn generate(
+        network_seed: String,
+        progenitor_pub_key: Vec<u8>,
+        network_pub_key: Vec<u8>,
+        signing_key_seed: &[u8; 32],
+        for_agent_pub_key: Option<Vec<u8>>,
+    ) -> ExternResult<Self> {
+        let mut membrane_proof_bytes = None;
+
+        if let Some(for_agent_raw) = for_agent_pub_key {
+            // Parse the target agent's public key
+            let for_agent = AgentPubKey::try_from_raw_39(for_agent_raw)
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Invalid target agent pub key format: {:?}", e))))?;
+
+            // Create membrane proof data
+            let membrane_proof_data = MembraneProofData {
+                network_seed: network_seed.clone(),
+                for_agent,
+                network_pub_key: network_pub_key.clone(),
+            };
+
+            // Generate the membrane proof using the signing key seed
+            if let Ok(proof) = membrane_proof_data.get_signed_membrane_proof_bytes(signing_key_seed) {
+                membrane_proof_bytes = Some(proof.bytes().to_vec());
+            }
+        }
+
+        Ok(InviteCode {
+            network_seed,
+            progenitor_pub_key,
+            network_pub_key,
+            membrane_proof: membrane_proof_bytes,
+        })
+    }
+
     /// Serializes the invite code to a base64-encoded string.
     ///
     /// Uses MessagePack for efficient binary serialization followed by URL-safe base64 encoding.
