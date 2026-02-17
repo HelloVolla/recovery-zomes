@@ -11,3 +11,4 @@ name = "agent_joined"
 hdk = { workspace = true }
 serde = { workspace = true }
 agent_joined_integrity = { workspace = true }
+shared_types = { workspace = true }

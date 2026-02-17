@@ -6,6 +6,7 @@
 
 use hdk::prelude::*;
 use agent_joined_integrity::*;
+use shared_types::Signal;
 
 /// Well-known anchor path for all joined agents
 const AGENTS_ANCHOR: &str = "all_agents";
@@ -24,7 +25,7 @@ pub fn signal_joined(_: ()) -> ExternResult<ActionHash> {
         joined_at: now,
     };
 
-    let action_hash = create_entry(&EntryTypes::AgentJoined(agent_joined))?;
+    let action_hash = create_entry(&EntryTypes::AgentJoined(agent_joined.clone()))?;
 
     // Create link from anchor to this entry for discoverability
     let anchor = anchor_hash()?;
@@ -34,6 +35,10 @@ pub fn signal_joined(_: ()) -> ExternResult<ActionHash> {
         LinkTypes::AllAgents,
         (),
     )?;
+
+    let signal = Signal::AgentJoined { agent: agent_joined.agent.clone() };
+
+    emit_signal(signal)?;
 
     Ok(action_hash)
 }
