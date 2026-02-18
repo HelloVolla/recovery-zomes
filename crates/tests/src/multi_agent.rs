@@ -741,7 +741,7 @@ async fn test_agent_join_verification_via_profile() {
     conductors.exchange_peer_info().await;
 
     // Agent2 signals that they have joined
-    let _action_hash: ActionHash = conductors[1]
+    let (): () = conductors[1]
         .raw_handle()
         .easy_call_zome(&agents[1], None, cell2_id.clone(), ZomeName::from("agent_joined"), "signal_joined", ())
         .await
