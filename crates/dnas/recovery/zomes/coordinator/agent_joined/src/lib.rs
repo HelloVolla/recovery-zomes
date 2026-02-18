@@ -11,6 +11,50 @@ use shared_types::Signal;
 /// Well-known anchor path for all joined agents
 const AGENTS_ANCHOR: &str = "all_agents";
 
+#[hdk_extern]
+pub fn init(_: ()) -> ExternResult<InitCallbackResult> {
+    let mut fns = HashSet::new();
+    fns.insert((zome_info()?.name, "recv_remote_signal".into()));
+    create_cap_grant(ZomeCallCapGrant {
+        tag: "remote signals".into(),
+        access: CapAccess::Unrestricted,
+        functions: GrantedFunctions::Listed(fns),
+    })?;
+    Ok(InitCallbackResult::Pass)
+}
+
+// Post commit callback
+#[hdk_extern(infallible)]
+pub fn post_commit(committed_actions: Vec<SignedActionHashed>) {
+    for action in committed_actions {
+        // Only handle cases where an entry is being created.
+        if let Action::Create(create_action) = action.action() {
+            let entry_hash = create_action.entry_hash.clone();
+
+            if let Ok(Some(record)) = get(entry_hash, GetOptions::local()) {
+                if let Some(agent_joined) = record.entry().to_app_option::<AgentJoined>().ok().flatten() {
+                    let signal = Signal::AgentJoined { agent: agent_joined.agent.clone() };
+                    emit_signal(&signal).ok();
+
+                    // Recover all the agents on the network and send a signal to them
+                    let agents = get_joined_agents_network(()).ok().unwrap_or_default();
+                    let agent_pub_keys = agents.iter().map(|(_, agent_joined)| agent_joined.agent.clone())
+                        .collect::<Vec<AgentPubKey>>();
+
+                    send_remote_signal(&signal, agent_pub_keys).ok();
+                }
+            }
+        }
+    }
+}
+
+// Handle remote signals
+#[hdk_extern]
+pub fn recv_remote_signal(signal: Signal) -> ExternResult<()> {
+    emit_signal(signal)?;
+    Ok(())
+}
+
 /// Signal that the current agent has joined the network.
 ///
 /// This creates an AgentJoined entry on the source chain and links it
@@ -41,10 +85,6 @@ pub fn signal_joined(_: ()) -> ExternResult<()> {
         LinkTypes::AllAgents,
         (),
     )?;
-
-    let signal = Signal::AgentJoined { agent: agent_joined.agent.clone() };
-
-    emit_signal(signal)?;
 
     Ok(())
 }
