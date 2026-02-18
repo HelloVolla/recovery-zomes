@@ -16,8 +16,14 @@ const AGENTS_ANCHOR: &str = "all_agents";
 /// This creates an AgentJoined entry on the source chain and links it
 /// from the all-agents anchor for discoverability.
 #[hdk_extern]
-pub fn signal_joined(_: ()) -> ExternResult<ActionHash> {
+pub fn signal_joined(_: ()) -> ExternResult<()> {
     let agent_info = agent_info()?;
+
+    // If already joined, silently ignore the request
+    if has_agent_joined(agent_info.agent_initial_pubkey.clone())? {
+        return Ok(());
+    }
+
     let now = sys_time()?;
 
     let agent_joined = AgentJoined {
@@ -31,7 +37,7 @@ pub fn signal_joined(_: ()) -> ExternResult<ActionHash> {
     let anchor = anchor_hash()?;
     create_link(
         anchor,
-        action_hash.clone(),
+        action_hash,
         LinkTypes::AllAgents,
         (),
     )?;
@@ -40,7 +46,7 @@ pub fn signal_joined(_: ()) -> ExternResult<ActionHash> {
 
     emit_signal(signal)?;
 
-    Ok(action_hash)
+    Ok(())
 }
 
 /// Check if the current agent has signaled they joined.
