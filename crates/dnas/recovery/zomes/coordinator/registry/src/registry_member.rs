@@ -70,6 +70,36 @@ pub fn get_registry_members(_: ()) -> ExternResult<Vec<(ActionHash, RegistryMemb
     Ok(members)
 }
 
+/// Get all registry members for the current agent - with network access.
+#[hdk_extern]
+pub fn get_registry_members_network(_: ()) -> ExternResult<Vec<(ActionHash, RegistryMember)>> {
+    let links = get_links(
+        LinkQuery {
+            base: get_registry_anchor()?,
+            link_type: LinkTypes::AllRegistryMembers.try_into_filter()?,
+            tag_prefix: None,
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Network,
+    )?;
+
+    let mut members = Vec::new();
+
+    for link in links {
+        if let Some(action_hash) = link.target.into_action_hash() {
+            if let Some(record) = get(action_hash.clone(), GetOptions::network())? {
+                if let Some(member) = record.entry().to_app_option::<RegistryMember>().map_err(|e| wasm_error!(e))? {
+                    members.push((action_hash, member));
+                }
+            }
+        }
+    }
+
+    Ok(members)
+}
+
 /// Get a registry member by their agent pub key
 #[hdk_extern]
 pub fn get_member_by_agent(agent: AgentPubKey) -> ExternResult<Option<(ActionHash, RegistryMember)>> {
