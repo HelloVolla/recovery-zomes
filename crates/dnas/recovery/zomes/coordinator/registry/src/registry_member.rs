@@ -192,6 +192,29 @@ pub fn update_member_status_by_agent(input: UpdateMemberByAgentInput) -> ExternR
     })
 }
 
+/// Update the status of a registry member by agent pub key - with network access.
+#[hdk_extern]
+pub fn update_member_status_by_agent_network(input: UpdateMemberByAgentInput) -> ExternResult<ActionHash> {
+    let (action_hash, _) = get_member_by_agent_network(input.agent.clone())?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(format!(
+            "Member not found for agent: {:?}",
+            input.agent
+        ))))?;
+
+    let record = get(action_hash.clone(), GetOptions::network())?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Member not found".to_string())))?;
+
+    let mut member: RegistryMember = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Invalid member entry".to_string())))?;
+
+    member.status = input.new_status;
+
+    update_entry(action_hash, &EntryTypes::RegistryMember(member))
+}
+
 /// Mark a member as active by action hash
 #[hdk_extern]
 pub fn accept_member(member_action_hash: ActionHash) -> ExternResult<ActionHash> {
