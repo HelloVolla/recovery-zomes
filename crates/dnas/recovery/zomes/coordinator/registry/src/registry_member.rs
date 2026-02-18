@@ -99,6 +99,35 @@ pub fn get_member_by_agent(agent: AgentPubKey) -> ExternResult<Option<(ActionHas
     Ok(None)
 }
 
+/// Get a registry member by their agent pub key - with network access.
+#[hdk_extern]
+pub fn get_member_by_agent_network(agent: AgentPubKey) -> ExternResult<Option<(ActionHash, RegistryMember)>> {
+    let links = get_links(
+        LinkQuery {
+            base: agent.into(),
+            link_type: LinkTypes::AgentToRegistryMember.try_into_filter()?,
+            tag_prefix: None,
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Network,
+    )?;
+
+    // Should only be one link per agent
+    if let Some(link) = links.first() {
+        if let Some(action_hash) = link.target.clone().into_action_hash() {
+            if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
+                if let Some(member) = record.entry().to_app_option::<RegistryMember>().map_err(|e| wasm_error!(e))? {
+                    return Ok(Some((action_hash, member)));
+                }
+            }
+        }
+    }
+
+    Ok(None)
+}
+
 /// Get only active registry members
 #[hdk_extern]
 pub fn get_active_members(_: ()) -> ExternResult<Vec<(ActionHash, RegistryMember)>> {
