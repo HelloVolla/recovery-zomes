@@ -102,6 +102,38 @@ pub fn get_joined_agents(_: ()) -> ExternResult<Vec<(ActionHash, AgentJoined)>> 
     Ok(agents)
 }
 
+/// Get all agents that have signaled they joined, with network strategy.
+#[hdk_extern]
+pub fn get_joined_agents_network(_: ()) -> ExternResult<Vec<(ActionHash, AgentJoined)>> {
+    let anchor = anchor_hash()?;
+
+    let links = get_links(
+        LinkQuery {
+            base: anchor.into(),
+            link_type: LinkTypes::AllAgents.try_into_filter()?,
+            tag_prefix: None,
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Network,
+    )?;
+
+    let mut agents = Vec::new();
+
+    for link in links {
+        if let Some(action_hash) = link.target.into_action_hash() {
+            if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
+                if let Some(entry) = record.entry().to_app_option::<AgentJoined>().ok().flatten() {
+                    agents.push((action_hash, entry));
+                }
+            }
+        }
+    }
+
+    Ok(agents)
+}
+
 /// Get the anchor hash for the all-agents anchor.
 fn anchor_hash() -> ExternResult<EntryHash> {
     let path = Path::from(AGENTS_ANCHOR);
