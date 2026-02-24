@@ -1,15 +1,6 @@
 use hdk::prelude::*;
 use registry_integrity::*;
-use shared_types::{InviteMemberInput, MemberStatus, SetMemberStatusInput};
-
-/// Named return type for `get_member_and_status` variants.
-#[derive(Serialize, Deserialize, Debug)]
-pub struct MemberAndStatusResult {
-    /// The RegistryMember entry, if found.
-    pub member: Option<RegistryMember>,
-    /// The most recent MemberStatusEntry, if found.
-    pub status: Option<MemberStatusEntry>,
-}
+use shared_types::{InviteMemberInput, MemberStatus, RegistryMemberWithStatus, SetMemberStatusInput};
 
 /// Get a fixed anchor hash for linking all registry members
 fn get_registry_anchor() -> ExternResult<AnyLinkableHash> {
@@ -261,19 +252,29 @@ pub fn get_member_status_network(agent: AgentPubKey) -> ExternResult<Option<(Act
 /// peer) while the `status` is set independently by another peer via
 /// `set_member_status`, so the two may be authored by different agents.
 #[hdk_extern]
-pub fn get_member_and_status(agent: AgentPubKey) -> ExternResult<MemberAndStatusResult> {
+pub fn get_member_and_status(agent: AgentPubKey) -> ExternResult<RegistryMemberWithStatus> {
     let member = get_member_by_agent(agent.clone())?.map(|(_, m)| m);
-    let status = get_member_status(agent)?.map(|(_, s)| s);
-    Ok(MemberAndStatusResult { member, status })
+    let status = get_member_status(agent.clone())?.map(|(_, s)| s);
+
+    Ok(RegistryMemberWithStatus {
+        agent: agent.clone(),
+        display_name: member.as_ref().map(|m| m.display_name.clone()).unwrap(),
+        status: status.as_ref().map(|s| s.status.clone()).unwrap(),
+    })
 }
 
 /// Retrieve both the RegistryMember and the most recent MemberStatusEntry for
 /// an agent - with network access.
 #[hdk_extern]
-pub fn get_member_and_status_network(agent: AgentPubKey) -> ExternResult<MemberAndStatusResult> {
+pub fn get_member_and_status_network(agent: AgentPubKey) -> ExternResult<RegistryMemberWithStatus> {
     let member = get_member_by_agent_network(agent.clone())?.map(|(_, m)| m);
-    let status = get_member_status_network(agent)?.map(|(_, s)| s);
-    Ok(MemberAndStatusResult { member, status })
+    let status = get_member_status_network(agent.clone())?.map(|(_, s)| s);
+
+    Ok(RegistryMemberWithStatus {
+        agent: agent.clone(),
+        display_name: member.as_ref().map(|m| m.display_name.clone()).unwrap(),
+        status: status.as_ref().map(|s| s.status.clone()).unwrap(),
+    })
 }
 
 /// Mark a member as active by agent pub key

@@ -1,5 +1,13 @@
 use crate::*;
 
+/// A registry member entry with the status included
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
+pub struct RegistryMemberWithStatus {
+    pub agent: AgentPubKey,
+    pub display_name: Option<String>,
+    pub status: MemberStatus,
+}
+
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub enum MemberStatus {
     /// Agent has been invited with an invite code
