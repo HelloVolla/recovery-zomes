@@ -36,12 +36,12 @@ pub fn post_commit(committed_actions: Vec<SignedActionHashed>) {
                     let signal = Signal::AgentJoined { agent: agent_joined.agent.clone() };
                     emit_signal(&signal).ok();
 
-                    // Recover all the agents on the network and send a signal to them
-                    let agents = get_joined_agents_network(()).ok().unwrap_or_default();
-                    let agent_pub_keys = agents.iter().map(|(_, agent_joined)| agent_joined.agent.clone())
-                        .collect::<Vec<AgentPubKey>>();
-
-                    send_remote_signal(&signal, agent_pub_keys).ok();
+                    // Only signal to the progenitor pub key that is contained in the dna properties
+                    if let Ok(dna_info) = dna_info() {
+                        if let Ok(properties) = shared_types::Properties::try_from(dna_info.modifiers.properties) {
+                            send_remote_signal(&signal, vec![properties.progenitor_pub_key]).ok();
+                        }
+                    }
                 }
             }
         }
