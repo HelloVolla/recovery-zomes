@@ -30,11 +30,23 @@ pub struct InviteMemberInput {
     pub invite_code_base64: String,
 }
 
-/// Update member status by agent pub key
+/// Input for setting a member's status (creates a new MemberStatusEntry)
 #[derive(Serialize, Deserialize, Debug)]
-pub struct UpdateMemberByAgentInput {
+pub struct SetMemberStatusInput {
     pub agent: AgentPubKey,
     pub new_status: MemberStatus,
+}
+
+/// Combined result of a member entry lookup and its most recent status.
+///
+/// Both fields are `Option` because a peer may have written only one of the
+/// two entries by the time the query runs.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MemberAndStatus<M, S> {
+    /// The RegistryMember entry together with its action hash, if found.
+    pub member: Option<(Vec<u8>, M)>,
+    /// The most recent MemberStatusEntry together with its action hash, if found.
+    pub status: Option<(Vec<u8>, S)>,
 }
 
 /// Input for inviting an agent to a bundle

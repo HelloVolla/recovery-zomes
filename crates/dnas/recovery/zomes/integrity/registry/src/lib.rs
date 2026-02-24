@@ -1,5 +1,7 @@
 pub mod registry_member;
 pub use registry_member::*;
+pub mod member_status;
+pub use member_status::*;
 pub mod storage_bundle;
 pub use storage_bundle::*;
 pub mod bundle_member;
@@ -13,6 +15,7 @@ use hdi::prelude::*;
 #[unit_enum(UnitEntryTypes)]
 pub enum EntryTypes {
     RegistryMember(RegistryMember),
+    MemberStatusEntry(MemberStatusEntry),
     StorageBundle(StorageBundle),
     BundleMember(BundleMember),
 }
@@ -22,6 +25,8 @@ pub enum EntryTypes {
 pub enum LinkTypes {
     /// Link from member's agent pub key to their RegistryMember entry
     AgentToRegistryMember,
+    /// Link from agent pub key to their MemberStatusEntry instances
+    AgentToMemberStatus,
     /// Link from agent pub key to their BundleMember instances (with tags for filtering)
     AgentToBundleMembers,
     /// Link from bundle entry hash to its member agents
@@ -42,6 +47,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::StoreEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::RegistryMember(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::MemberStatusEntry(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::StorageBundle(bundle) => {
                     validate_create_storage_bundle_info(EntryCreationAction::Create(action), bundle)
                 }
@@ -51,6 +57,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry { app_entry, action, .. } => match app_entry {
                 EntryTypes::RegistryMember(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::MemberStatusEntry(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::StorageBundle(bundle) => {
                     validate_create_storage_bundle_info(EntryCreationAction::Update(action), bundle)
                 }

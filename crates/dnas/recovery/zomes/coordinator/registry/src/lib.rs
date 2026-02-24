@@ -35,10 +35,10 @@ pub enum Signal {
         action: SignedActionHashed,
         member: RegistryMember,
     },
-    /// A member status was updated
-    MemberUpdated {
+    /// A member status entry was created
+    MemberStatusSet {
         action: SignedActionHashed,
-        member: RegistryMember,
+        status_entry: MemberStatusEntry,
     },
     /// A new storage bundle was registered
     BundleRegistered {
