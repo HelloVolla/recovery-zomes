@@ -1,5 +1,5 @@
 use hdi::prelude::*;
-use shared_types::MemberStatus;
+use integrity_types::MemberStatus;
 
 /// Standalone entry representing the status of a member,
 /// decoupled from the RegistryMember entry.

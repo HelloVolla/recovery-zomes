@@ -1,0 +1,16 @@
+[package]
+name = "integrity_types"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["rlib"]
+name = "integrity_types"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+hdi = { workspace = true }
+holochain_serialized_bytes = { workspace = true }
+ed25519-dalek = { workspace = true }
+base64 = { workspace = true }
+rmp-serde = { workspace = true }

@@ -10,6 +10,6 @@ name = "membrane_integrity"
 [dependencies]
 hdi = { workspace = true }
 serde = { workspace = true }
-shared_types = { workspace = true }
+integrity_types = { workspace = true }
 ed25519-dalek = { workspace = true }
 holochain_serialized_bytes = { workspace = true }

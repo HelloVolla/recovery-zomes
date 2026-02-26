@@ -1,6 +1,6 @@
 pub mod private_signing_key;
 pub use private_signing_key::*;
-use shared_types::{MembraneProofEnvelope, Properties};
+use integrity_types::{MembraneProofEnvelope, Properties};
 use hdi::prelude::*;
 use ed25519_dalek::{Signature as DalekSignature, Verifier, VerifyingKey};
 

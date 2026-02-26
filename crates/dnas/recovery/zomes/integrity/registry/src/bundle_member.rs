@@ -1,5 +1,5 @@
 use hdi::prelude::*;
-use shared_types::MemberStatus;
+use integrity_types::MemberStatus;
 
 /// Represents an agent's membership in a storage bundle.
 #[derive(Clone, PartialEq)]

@@ -11,5 +11,5 @@ name = "storage_integrity"
 hdi = { workspace = true }
 serde = { workspace = true }
 holochain_serialized_bytes = { workspace = true }
-shared_types = { workspace = true }
+integrity_types = { workspace = true }
 ed25519-dalek = { workspace = true }
