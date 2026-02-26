@@ -105,36 +105,6 @@ pub fn get_registry_members(_: ()) -> ExternResult<Vec<(ActionHash, RegistryMemb
     Ok(members)
 }
 
-/// Retrieve all registry members - with network access
-#[hdk_extern]
-pub fn get_registry_members_network(_: ()) -> ExternResult<Vec<(ActionHash, RegistryMember)>> {
-    let links = get_links(
-        LinkQuery {
-            base: get_registry_anchor()?,
-            link_type: LinkTypes::AllRegistryMembers.try_into_filter()?,
-            tag_prefix: None,
-            before: None,
-            after: None,
-            author: None,
-        },
-        GetStrategy::Network,
-    )?;
-
-    let mut members = Vec::new();
-
-    for link in links {
-        if let Some(action_hash) = link.target.into_action_hash() {
-            if let Some(record) = get(action_hash.clone(), GetOptions::network())? {
-                if let Some(member) = record.entry().to_app_option::<RegistryMember>().map_err(|e| wasm_error!(e))? {
-                    members.push((action_hash, member));
-                }
-            }
-        }
-    }
-
-    Ok(members)
-}
-
 /// Get the RegistryMember entry for a given agent pub key
 #[hdk_extern]
 pub fn get_member_by_agent(agent: AgentPubKey) -> ExternResult<Option<(ActionHash, RegistryMember)>> {
@@ -154,34 +124,6 @@ pub fn get_member_by_agent(agent: AgentPubKey) -> ExternResult<Option<(ActionHas
     if let Some(link) = links.first() {
         if let Some(action_hash) = link.target.clone().into_action_hash() {
             if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
-                if let Some(member) = record.entry().to_app_option::<RegistryMember>().map_err(|e| wasm_error!(e))? {
-                    return Ok(Some((action_hash, member)));
-                }
-            }
-        }
-    }
-
-    Ok(None)
-}
-
-/// Get the RegistryMember entry for a given agent pub key - with network access
-#[hdk_extern]
-pub fn get_member_by_agent_network(agent: AgentPubKey) -> ExternResult<Option<(ActionHash, RegistryMember)>> {
-    let links = get_links(
-        LinkQuery {
-            base: agent.into(),
-            link_type: LinkTypes::AgentToRegistryMember.try_into_filter()?,
-            tag_prefix: None,
-            before: None,
-            after: None,
-            author: None,
-        },
-        GetStrategy::Network,
-    )?;
-
-    if let Some(link) = links.first() {
-        if let Some(action_hash) = link.target.clone().into_action_hash() {
-            if let Some(record) = get(action_hash.clone(), GetOptions::network())? {
                 if let Some(member) = record.entry().to_app_option::<RegistryMember>().map_err(|e| wasm_error!(e))? {
                     return Ok(Some((action_hash, member)));
                 }
@@ -238,13 +180,6 @@ pub fn get_member_status(agent: AgentPubKey) -> ExternResult<Option<(ActionHash,
     Ok(entries.pop())
 }
 
-/// Retrieve the most recent MemberStatusEntry for an agent - with network access.
-#[hdk_extern]
-pub fn get_member_status_network(agent: AgentPubKey) -> ExternResult<Option<(ActionHash, MemberStatusEntry)>> {
-    let mut entries = get_all_status_entries(agent, GetStrategy::Network)?;
-    Ok(entries.pop())
-}
-
 /// Retrieve both the RegistryMember and the most recent MemberStatusEntry for
 /// an agent in a single call.
 ///
@@ -255,20 +190,6 @@ pub fn get_member_status_network(agent: AgentPubKey) -> ExternResult<Option<(Act
 pub fn get_member_and_status(agent: AgentPubKey) -> ExternResult<RegistryMemberWithStatus> {
     let member = get_member_by_agent(agent.clone())?.map(|(_, m)| m);
     let status = get_member_status(agent.clone())?.map(|(_, s)| s);
-
-    Ok(RegistryMemberWithStatus {
-        agent: agent.clone(),
-        display_name: member.as_ref().map(|m| m.display_name.clone()).unwrap(),
-        status: status.as_ref().map(|s| s.status.clone()).unwrap(),
-    })
-}
-
-/// Retrieve both the RegistryMember and the most recent MemberStatusEntry for
-/// an agent - with network access.
-#[hdk_extern]
-pub fn get_member_and_status_network(agent: AgentPubKey) -> ExternResult<RegistryMemberWithStatus> {
-    let member = get_member_by_agent_network(agent.clone())?.map(|(_, m)| m);
-    let status = get_member_status_network(agent.clone())?.map(|(_, s)| s);
 
     Ok(RegistryMemberWithStatus {
         agent: agent.clone(),
