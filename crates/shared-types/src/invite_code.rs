@@ -38,6 +38,10 @@ pub struct InviteCode {
     /// The public key of the network, used to verify membrane proofs
     #[serde(with = "serde_bytes")]
     pub network_pub_key: Vec<u8>,
+    /// The DNA hash of the cell (39-byte raw format).
+    /// Used by the joining agent to verify that the cloned cell's DNA hash matches.
+    #[serde(with = "serde_bytes")]
+    pub dna_hash: Vec<u8>,
     /// The membrane proof bytes (MessagePack-encoded MembraneProofEnvelope)
     #[serde(with = "serde_bytes")]
     pub membrane_proof: Option<Vec<u8>>,
@@ -66,6 +70,7 @@ impl InviteCode {
         network_seed: String,
         progenitor_pub_key: Vec<u8>,
         network_pub_key: Vec<u8>,
+        dna_hash: Vec<u8>,
         signing_key_seed: &[u8; 32],
         for_agent_pub_key: Option<Vec<u8>>,
     ) -> ExternResult<Self> {
@@ -93,6 +98,7 @@ impl InviteCode {
             network_seed,
             progenitor_pub_key,
             network_pub_key,
+            dna_hash,
             membrane_proof: membrane_proof_bytes,
         })
     }

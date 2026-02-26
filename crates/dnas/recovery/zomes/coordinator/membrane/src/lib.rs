@@ -95,6 +95,7 @@ pub fn generate_invite_code(input: GenerateInviteCodeInput) -> ExternResult<Invi
     // Gather cell info from the HDK
     let dna_info = dna_info()?;
     let network_seed = dna_info.modifiers.network_seed.clone();
+    let dna_hash = dna_info.hash.get_raw_39().to_vec();
     let agent_info = agent_info()?;
     let progenitor_pub_key: Vec<u8> = agent_info.agent_initial_pubkey.get_raw_39().to_vec();
 
@@ -110,6 +111,7 @@ pub fn generate_invite_code(input: GenerateInviteCodeInput) -> ExternResult<Invi
         network_seed,
         progenitor_pub_key,
         network_pub_key,
+        dna_hash,
         &seed_array,
         input.for_agent_pub_key,
     )
