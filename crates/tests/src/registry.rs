@@ -148,12 +148,14 @@ async fn test_mark_invite_fulfilled_by_code() {
         pub network_seed: String,
         pub progenitor: AgentPubKey,
         pub network_pub_key: Vec<u8>,
+        pub dna_hash: Vec<u8>,
     }
 
     let register_start_input = RegisterBundleInput {
         network_seed: network_seed.clone(),
         progenitor: agents[0].clone(),
         network_pub_key: signing_key.verifying_key().to_bytes().to_vec(),
+        dna_hash: cell0_id.dna_hash().get_raw_39().to_vec(),
     };
 
     let _bundle_hash: ActionHash = conductors[0]

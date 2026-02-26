@@ -10,6 +10,8 @@ pub struct StorageBundle {
     pub progenitor: AgentPubKey,
     /// Network pubkey of the storage DNA
     pub network_pub_key: Vec<u8>,
+    /// DNA hash of the storage cell (39-byte raw format)
+    pub dna_hash: Vec<u8>,
 }
 
 pub fn validate_create_storage_bundle_info(

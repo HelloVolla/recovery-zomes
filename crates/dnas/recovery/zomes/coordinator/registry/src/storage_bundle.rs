@@ -10,6 +10,7 @@ pub struct RegisterBundleInput {
     pub network_seed: String,
     pub progenitor: AgentPubKey,
     pub network_pub_key: Vec<u8>,
+    pub dna_hash: Vec<u8>,
 }
 
 /// Get a fixed anchor hash for linking all storage bundles
@@ -27,6 +28,7 @@ pub fn register_storage_bundle(input: RegisterBundleInput) -> ExternResult<Actio
         network_seed: input.network_seed.clone(),
         progenitor: input.progenitor,
         network_pub_key: input.network_pub_key,
+        dna_hash: input.dna_hash,
     };
 
     let action_hash = create_entry(&EntryTypes::StorageBundle(bundle_info))?;
