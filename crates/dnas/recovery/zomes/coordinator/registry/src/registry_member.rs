@@ -277,6 +277,57 @@ pub fn get_member_and_status_network(agent: AgentPubKey) -> ExternResult<Registr
     })
 }
 
+/// Retrieve all registry members and their most recent statuses in a single call,
+/// using local access for both members and statuses.
+///
+/// Members for which no status entry can be found are skipped.
+#[hdk_extern]
+pub fn get_all_members_and_statuses(_: ()) -> ExternResult<Vec<RegistryMemberWithStatus>> {
+    let links = get_links(
+        LinkQuery {
+            base: get_registry_anchor()?,
+            link_type: LinkTypes::AllRegistryMembers.try_into_filter()?,
+            tag_prefix: None,
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Local,
+    )?;
+
+    let mut result = Vec::new();
+
+    for link in links {
+        if let Some(action_hash) = link.target.into_action_hash() {
+            if let Some(record) = get(action_hash, GetOptions::local())? {
+                if let Some(member) = record
+                    .entry()
+                    .to_app_option::<RegistryMember>()
+                    .map_err(|e| wasm_error!(e))?
+                {
+                    let mut status_entries =
+                        get_all_status_entries(member.agent.clone(), GetStrategy::Local)?;
+
+                    if let Some((_, status_entry)) = status_entries.pop() {
+                        result.push(RegistryMemberWithStatus {
+                            agent: member.agent,
+                            display_name: member.display_name,
+                            status: status_entry.status,
+                        });
+                    } else {
+                        debug!(
+                            "No status found for member {:?}, skipping",
+                            member.agent
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(result)
+}
+
 /// Mark a member as active by agent pub key
 #[hdk_extern]
 pub fn accept_member_by_agent(agent: AgentPubKey) -> ExternResult<ActionHash> {
