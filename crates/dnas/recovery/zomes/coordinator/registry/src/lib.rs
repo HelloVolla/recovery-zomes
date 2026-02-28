@@ -2,6 +2,8 @@ pub mod registry_member;
 pub use registry_member::*;
 pub mod storage_bundle;
 pub use storage_bundle::*;
+pub mod bundle_member;
+pub use bundle_member::*;
 pub mod sync;
 pub use sync::*;
 pub mod utils;
