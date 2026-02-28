@@ -29,12 +29,12 @@ pub enum LinkTypes {
     AgentToMemberStatus,
     /// Link from agent pub key to their BundleMember instances (with tags for filtering)
     AgentToBundleMembers,
-    /// Link from bundle entry hash to its member agents
-    BundleToBundleMembers,
     /// Link from agent to bundles they are a member of
     AgentToStorageBundles,
     /// Link from network seed to storage bundle
     NetworkSeedToStorageBundle,
+    /// Link from network seed to all BundleMember entries (tag = agent pubkey bytes)
+    NetworkSeedToBundleMembers,
     /// Link from fixed anchor to registry members
     AllRegistryMembers,
     /// Link from fixed anchor to storage bundles

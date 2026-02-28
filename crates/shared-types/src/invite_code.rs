@@ -128,11 +128,3 @@ impl InviteCode {
             .map_err(|e| format!("Failed to deserialize invite code: {}", e))
     }
 }
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct GetInviteCodeByCodeInput {
-    /// The base64-encoded invite code string to search for
-    pub code: String,
-    /// The agent whose invite codes to search
-    pub agent: AgentPubKey,
-}
