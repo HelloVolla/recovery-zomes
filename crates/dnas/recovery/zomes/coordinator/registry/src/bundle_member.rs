@@ -229,47 +229,6 @@ pub fn get_agent_invite_codes(agent: AgentPubKey) -> ExternResult<Vec<String>> {
     Ok(invite_codes)
 }
 
-/// Input for getting bundle members by status
-#[derive(Serialize, Deserialize, Debug)]
-pub struct GetBundleMembersByStatusInput {
-    pub network_seed: String,
-    pub status_filter: Option<String>, // "invited", "active", "revoked", or None for all
-}
-
-/// Get bundle members filtered by status
-#[hdk_extern]
-pub fn get_bundle_members_by_status(input: GetBundleMembersByStatusInput) -> ExternResult<Vec<(ActionHash, BundleMember)>> {
-    let bundle = get_storage_bundle_by_network_seed(input.network_seed)?
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Bundle not found".to_string())))?;
-
-    let tag_prefix = input.status_filter.map(|s| LinkTag::new(format!("{}:", s).as_bytes().to_vec()));
-
-    let links = get_links(
-        LinkQuery {
-            base: bundle.0.into(),
-            link_type: LinkTypes::BundleToBundleMembers.try_into_filter()?,
-            tag_prefix,
-            before: None,
-            after: None,
-            author: None,
-        },
-        GetStrategy::Local,
-    )?;
-
-    let mut members = Vec::new();
-    for link in links {
-        if let Some(action_hash) = link.target.into_action_hash() {
-            if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
-                if let Some(member) = record.entry().to_app_option::<BundleMember>().map_err(|e| wasm_error!(e))? {
-                    members.push((action_hash, member));
-                }
-            }
-        }
-    }
-
-    Ok(members)
-}
-
 /// Mark an invite as fulfilled using just the invite code string
 #[hdk_extern]
 pub fn mark_invite_fulfilled_by_code(input: shared_types::GetInviteCodeByCodeInput) -> ExternResult<ActionHash> {
