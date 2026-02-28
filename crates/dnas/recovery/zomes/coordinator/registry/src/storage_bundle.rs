@@ -121,7 +121,6 @@ pub fn get_storage_bundle_by_network_seed(network_seed: String) -> ExternResult<
 /// Add an agent as a member of a storage bundle
 #[hdk_extern]
 pub fn invite_agent_to_bundle(input: InviteAgentToBundleInput) -> ExternResult<ActionHash> {
-    // First, get the bundle to ensure it exists
     let bundle = get_storage_bundle_by_network_seed(input.network_seed.clone())?
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(format!("Bundle not found: {}", input.network_seed))))?;
 
@@ -149,14 +148,6 @@ pub fn invite_agent_to_bundle(input: InviteAgentToBundleInput) -> ExternResult<A
         action_hash.clone(),
         LinkTypes::AgentToBundleMembers,
         agent_tag,
-    )?;
-
-    // Keep existing link for backward compatibility
-    create_link(
-        input.agent,
-        action_hash.clone(),
-        LinkTypes::AgentToStorageBundles,
-        input.network_seed.as_bytes().to_vec(),
     )?;
 
     Ok(action_hash)
