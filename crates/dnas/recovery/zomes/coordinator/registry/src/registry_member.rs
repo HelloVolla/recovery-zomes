@@ -13,12 +13,9 @@ fn get_registry_anchor() -> ExternResult<AnyLinkableHash> {
 /// Invite an agent to join the registry (creates RegistryMember entry with no status)
 #[hdk_extern]
 pub fn invite_member(input: InviteMemberInput) -> ExternResult<ActionHash> {
-    let now = sys_time()?.as_micros();
-
     let member = RegistryMember {
         agent: input.agent.clone(),
         display_name: input.display_name,
-        timestamp: now,
     };
 
     let action_hash = create_entry(&EntryTypes::RegistryMember(member))?;
@@ -54,12 +51,9 @@ pub fn invite_member(input: InviteMemberInput) -> ExternResult<ActionHash> {
 /// the most recent one.
 #[hdk_extern]
 pub fn set_member_status(input: SetMemberStatusInput) -> ExternResult<ActionHash> {
-    let now = sys_time()?.as_micros();
-
     let status_entry = MemberStatusEntry {
         agent: input.agent.clone(),
         status: input.new_status,
-        timestamp: now,
     };
 
     let action_hash = create_entry(&EntryTypes::MemberStatusEntry(status_entry))?;
@@ -134,12 +128,10 @@ pub fn get_member_by_agent(agent: AgentPubKey) -> ExternResult<Option<(ActionHas
     Ok(None)
 }
 
-/// Retrieve all MemberStatusEntry records for an agent, sorted by timestamp ascending.
-fn get_all_status_entries(
-    agent: AgentPubKey,
-    strategy: GetStrategy,
-) -> ExternResult<Vec<(ActionHash, MemberStatusEntry)>> {
-    let links = get_links(
+/// Retrieve the most recent MemberStatusEntry for an agent.
+#[hdk_extern]
+pub fn get_member_status(agent: AgentPubKey) -> ExternResult<Option<(ActionHash, MemberStatusEntry)>> {
+    let mut links = get_links(
         LinkQuery {
             base: agent.into(),
             link_type: LinkTypes::AgentToMemberStatus.try_into_filter()?,
@@ -148,36 +140,25 @@ fn get_all_status_entries(
             after: None,
             author: None,
         },
-        strategy.clone(),
+        GetStrategy::Local,
     )?;
 
-    let get_options: GetOptions = strategy.into();
+    links.sort_by_key(|link| link.timestamp);
 
-    let mut entries: Vec<(ActionHash, MemberStatusEntry)> = Vec::new();
+    let link = links.pop();
 
-    for link in links {
+    if let Some(link) = link {
         if let Some(action_hash) = link.target.into_action_hash() {
-            if let Some(record) = get(action_hash.clone(), get_options.clone())? {
-                if let Some(entry) = record
-                    .entry()
+            if let Some(record) = get(action_hash.clone(), GetOptions::local())? {
+                if let Some(entry) = record.entry()
                     .to_app_option::<MemberStatusEntry>()
                     .map_err(|e| wasm_error!(e))?
-                {
-                    entries.push((action_hash, entry));
-                }
+                { return Ok(Some((action_hash, entry))) }
             }
         }
     }
 
-    entries.sort_by_key(|(_, e)| e.timestamp);
-    Ok(entries)
-}
-
-/// Retrieve the most recent MemberStatusEntry for an agent.
-#[hdk_extern]
-pub fn get_member_status(agent: AgentPubKey) -> ExternResult<Option<(ActionHash, MemberStatusEntry)>> {
-    let mut entries = get_all_status_entries(agent, GetStrategy::Local)?;
-    Ok(entries.pop())
+    Ok(None)
 }
 
 /// Retrieve both the RegistryMember and the most recent MemberStatusEntry for
@@ -226,10 +207,9 @@ pub fn get_all_members_and_statuses(_: ()) -> ExternResult<Vec<RegistryMemberWit
                     .to_app_option::<RegistryMember>()
                     .map_err(|e| wasm_error!(e))?
                 {
-                    let mut status_entries =
-                        get_all_status_entries(member.agent.clone(), GetStrategy::Local)?;
+                    let status = get_member_status(member.agent.clone())?;
 
-                    if let Some((_, status_entry)) = status_entries.pop() {
+                    if let Some((_, status_entry)) = status {
                         result.push(RegistryMemberWithStatus {
                             agent: member.agent,
                             display_name: member.display_name,

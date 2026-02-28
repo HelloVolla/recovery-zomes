@@ -12,6 +12,4 @@ pub struct RegistryMember {
     pub agent: AgentPubKey,
     /// Optional display name for the member
     pub display_name: Option<String>,
-    /// Unix timestamp (microseconds) at creation time
-    pub timestamp: i64,
 }

@@ -6,6 +6,7 @@ use integrity_types::MemberStatus;
 ///
 /// Multiple status entries may exist for the same agent; callers should
 /// select the one with the greatest `timestamp` to get the most recent status.
+/// The timestamp to use is the timestamp of the link to this entry.
 #[derive(Clone, PartialEq)]
 #[hdk_entry_helper]
 pub struct MemberStatusEntry {
@@ -13,6 +14,4 @@ pub struct MemberStatusEntry {
     pub agent: AgentPubKey,
     /// The membership status
     pub status: MemberStatus,
-    /// Unix timestamp (microseconds) at creation time
-    pub timestamp: i64,
 }
