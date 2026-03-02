@@ -1,6 +1,7 @@
 pub mod registry_member;
 pub use registry_member::*;
 pub mod storage_bundle;
+use shared_types::Signal;
 pub use storage_bundle::*;
 pub mod bundle_member;
 pub use bundle_member::*;
@@ -17,7 +18,7 @@ use registry_integrity::*;
 pub fn init() -> ExternResult<InitCallbackResult> {
     // Grant unrestricted access to certain functions that should be remotely callable
     let mut functions = HashSet::new();
-    functions.insert((zome_info()?.name, "receive_bundle_notification".into()));
+    functions.insert((zome_info()?.name, "recv_remote_signal".into()));
 
     create_cap_grant(ZomeCallCapGrant {
         tag: "registry_remote".into(),
@@ -28,66 +29,15 @@ pub fn init() -> ExternResult<InitCallbackResult> {
     Ok(InitCallbackResult::Pass)
 }
 
-/// Signal types for registry events
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(tag = "type")]
-pub enum Signal {
-    /// A new member was invited
-    MemberInvited {
-        action: SignedActionHashed,
-        member: RegistryMember,
-    },
-    /// A member status entry was created
-    MemberStatusSet {
-        action: SignedActionHashed,
-        status_entry: MemberStatusEntry,
-    },
-    /// A new storage bundle was registered
-    BundleRegistered {
-        action: SignedActionHashed,
-        bundle_info: StorageBundle,
-    },
-    /// An agent was added to a bundle
-    AgentAddedToBundle {
-        action: SignedActionHashed,
-        member: BundleMember,
-    },
-    /// A new bundle notification was received
-    NewBundleNotification {
-        bundle_id: String,
-        bundle_name: String,
-        member_action_hash: ActionHash,
-    },
-    /// Generic entry created signal
-    EntryCreated {
-        action: SignedActionHashed,
-        app_entry: EntryTypes,
-    },
-    /// Generic entry updated signal
-    EntryUpdated {
-        action: SignedActionHashed,
-        app_entry: EntryTypes,
-        original_app_entry: EntryTypes,
-    },
-    /// Generic entry deleted signal
-    EntryDeleted {
-        action: SignedActionHashed,
-        original_app_entry: EntryTypes,
-    },
-    /// Link created signal
-    LinkCreated {
-        action: SignedActionHashed,
-        link_type: LinkTypes,
-    },
-    /// Link deleted signal
-    LinkDeleted {
-        action: SignedActionHashed,
-        create_link_action: SignedActionHashed,
-        link_type: LinkTypes,
-    },
+// Handle remote signals
+#[hdk_extern]
+pub fn recv_remote_signal(signal: Signal) -> ExternResult<()> {
+    // Re-emit as a local signal for the UI/client to handle
+    emit_signal(signal)?;
+    Ok(())
 }
 
-/// Whenever an action is committed, we emit a signal to the UI elements to reactively update them
+// Post commit callback
 #[hdk_extern(infallible)]
 pub fn post_commit(committed_actions: Vec<SignedActionHashed>) {
     for action in committed_actions {
@@ -98,80 +48,46 @@ pub fn post_commit(committed_actions: Vec<SignedActionHashed>) {
 }
 
 fn signal_action(action: SignedActionHashed) -> ExternResult<()> {
-    match action.hashed.content.clone() {
-        Action::Create(_create) => {
-            if let Ok(Some(app_entry)) = get_entry_for_action(&action.hashed.hash) {
-                emit_signal(Signal::EntryCreated { action, app_entry })?;
-            }
-            Ok(())
-        }
-        Action::Update(update) => {
-            if let Ok(Some(app_entry)) = get_entry_for_action(&action.hashed.hash) {
-                if let Ok(Some(original_app_entry)) = get_entry_for_action(&update.original_action_address) {
-                    emit_signal(Signal::EntryUpdated {
-                        action,
-                        app_entry,
-                        original_app_entry,
-                    })?;
-                }
-            }
-            Ok(())
-        }
-        Action::Delete(delete) => {
-            if let Ok(Some(original_app_entry)) = get_entry_for_action(&delete.deletes_address) {
-                emit_signal(Signal::EntryDeleted {
-                    action,
-                    original_app_entry,
-                })?;
-            }
-            Ok(())
-        }
-        Action::CreateLink(create_link) => {
-            if let Ok(Some(link_type)) = LinkTypes::from_type(create_link.zome_index, create_link.link_type) {
-                emit_signal(Signal::LinkCreated { action, link_type })?;
-            }
-            Ok(())
-        }
-        Action::DeleteLink(delete_link) => {
-            let record = get(delete_link.link_add_address.clone(), GetOptions::local())?.ok_or(
-                wasm_error!(WasmErrorInner::Guest("Failed to fetch CreateLink action".to_string())),
-            )?;
-            match record.action() {
-                Action::CreateLink(create_link) => {
-                    if let Ok(Some(link_type)) = LinkTypes::from_type(create_link.zome_index, create_link.link_type) {
-                        emit_signal(Signal::LinkDeleted {
-                            action,
-                            link_type,
-                            create_link_action: record.signed_action.clone(),
-                        })?;
-                    }
-                    Ok(())
-                }
-                _ => Err(wasm_error!(WasmErrorInner::Guest("Create Link should exist".to_string()))),
-            }
-        }
-        _ => Ok(()),
-    }
-}
+    let Action::Create(create_action) = action.action() else {
+        return Ok(());
+    };
 
-fn get_entry_for_action(action_hash: &ActionHash) -> ExternResult<Option<EntryTypes>> {
-    let record = match get_details(action_hash.clone(), GetOptions::local())? {
-        Some(Details::Record(record_details)) => record_details.record,
-        _ => return Ok(None),
+    // Deserialize to the typed EntryTypes enum using the entry type info
+    // embedded in the Create action, so we can match exhaustively.
+    let entry = match get(create_action.entry_hash.clone(), GetOptions::local())? {
+        Some(record) => match record.entry().as_option() {
+            Some(e) => e.clone(),
+            None => return Ok(()),
+        },
+        None => return Ok(()),
     };
-    let entry = match record.entry().as_option() {
-        Some(entry) => entry,
-        None => return Ok(None),
+    let entry_type = match create_action.entry_type.clone() {
+        EntryType::App(app) => app,
+        _ => return Ok(()),
     };
-    let (zome_index, entry_index) = match record.action().entry_type() {
-        Some(EntryType::App(AppEntryDef {
-            zome_index,
-            entry_index,
-            ..
-        })) => (zome_index, entry_index),
-        _ => return Ok(None),
-    };
-    EntryTypes::deserialize_from_type(*zome_index, *entry_index, entry)
+    let app_entry = EntryTypes::deserialize_from_type(
+        entry_type.zome_index,
+        entry_type.entry_index,
+        &entry,
+    )?;
+
+    match app_entry {
+        Some(EntryTypes::RegistryMember(member)) => {
+            emit_signal(&Signal::RegistryMemberCreated {
+                agent: member.agent,
+                display_name: member.display_name,
+            })?;
+        }
+        Some(EntryTypes::MemberStatusEntry(status_entry)) => {
+            emit_signal(&Signal::RegistryMemberStatusSet {
+                agent: status_entry.agent,
+                status: status_entry.status,
+            })?;
+        }
+        _ => {}
+    }
+
+    Ok(())
 }
 
 /// Get the progenitor (current agent) public key

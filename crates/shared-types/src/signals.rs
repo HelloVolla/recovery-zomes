@@ -6,4 +6,12 @@ pub enum Signal {
     AgentJoined {
         agent: AgentPubKey,
     },
+    RegistryMemberCreated {
+        agent: AgentPubKey,
+        display_name: Option<String>,
+    },
+    RegistryMemberStatusSet {
+        agent: AgentPubKey,
+        status: MemberStatus,
+    },
 }
