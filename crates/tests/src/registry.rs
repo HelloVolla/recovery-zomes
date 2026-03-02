@@ -223,14 +223,14 @@ async fn setup_registry_single_agent(
     (conductor, agent, cell_id)
 }
 
-/// Test that `get_member_and_status` returns the correct combined view after
+/// Test that `get_member_with_status` returns the correct combined view after
 /// calling `invite_member` (which creates a RegistryMember + initial Invited
 /// status) followed by a subsequent `set_member_status` call that marks the
 /// member as Active.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_get_member_and_status_combined_view() {
+async fn test_get_member_with_status_combined_view() {
     let (conductor, progenitor, cell_id) =
-        setup_registry_single_agent("test-member-and-status").await;
+        setup_registry_single_agent("test-member-with-status").await;
 
     // Use a fresh fake agent key as the invitee
     let invitee = SweetAgents::one(conductor.keystore()).await;
@@ -281,11 +281,11 @@ async fn test_get_member_and_status_combined_view() {
             None,
             cell_id.clone(),
             ZomeName::from("registry"),
-            "get_member_and_status",
+            "get_member_with_status",
             invitee.clone(),
         )
         .await
-        .expect("get_member_and_status should succeed");
+        .expect("get_member_with_status should succeed");
 
     assert_eq!(result.agent, invitee, "Agent key should match the invitee");
     assert_eq!(

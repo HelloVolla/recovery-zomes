@@ -168,7 +168,7 @@ pub fn get_member_status(agent: AgentPubKey) -> ExternResult<Option<(ActionHash,
 /// peer) while the `status` is set independently by another peer via
 /// `set_member_status`, so the two may be authored by different agents.
 #[hdk_extern]
-pub fn get_member_and_status(agent: AgentPubKey) -> ExternResult<RegistryMemberWithStatus> {
+pub fn get_member_with_status(agent: AgentPubKey) -> ExternResult<RegistryMemberWithStatus> {
     let member = get_member_by_agent(agent.clone())?.map(|(_, m)| m);
     let status = get_member_status(agent.clone())?.map(|(_, s)| s);
 
@@ -184,7 +184,7 @@ pub fn get_member_and_status(agent: AgentPubKey) -> ExternResult<RegistryMemberW
 ///
 /// Members for which no status entry can be found are skipped.
 #[hdk_extern]
-pub fn get_all_members_and_statuses(_: ()) -> ExternResult<Vec<RegistryMemberWithStatus>> {
+pub fn get_all_members_with_statuses(_: ()) -> ExternResult<Vec<RegistryMemberWithStatus>> {
     let links = get_links(
         LinkQuery {
             base: get_registry_anchor()?,
