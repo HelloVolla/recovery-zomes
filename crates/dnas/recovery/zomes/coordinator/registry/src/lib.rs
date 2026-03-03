@@ -47,6 +47,28 @@ pub fn post_commit(committed_actions: Vec<SignedActionHashed>) {
     }
 }
 
+fn emit_local_and_remote_signal(signal: &Signal) -> ExternResult<()> {
+    emit_signal(signal.clone())?;
+
+    let mut agents = get_members_pub_keys(())?;
+
+    let my_agent = agent_info()?.agent_initial_pubkey;
+    agents.retain(|agent| agent != &my_agent);
+
+    // Signal only to the progenitor if the list is empty
+    if agents.is_empty() {
+        if let Ok(dna_info) = dna_info() {
+            if let Ok(properties) = shared_types::Properties::try_from(dna_info.modifiers.properties) {
+                agents.push(properties.progenitor_pub_key);
+            }
+        }
+    }
+
+    send_remote_signal(signal.clone(), agents)?;
+
+    Ok(())
+}
+
 fn signal_action(action: SignedActionHashed) -> ExternResult<()> {
     let Action::Create(create_action) = action.action() else {
         return Ok(());
@@ -73,13 +95,13 @@ fn signal_action(action: SignedActionHashed) -> ExternResult<()> {
 
     match app_entry {
         Some(EntryTypes::RegistryMember(member)) => {
-            emit_signal(&Signal::RegistryMemberCreated {
+            emit_local_and_remote_signal(&Signal::RegistryMemberCreated {
                 agent: member.agent,
                 display_name: member.display_name,
             })?;
         }
         Some(EntryTypes::MemberStatusEntry(status_entry)) => {
-            emit_signal(&Signal::RegistryMemberStatusSet {
+            emit_local_and_remote_signal(&Signal::RegistryMemberStatusSet {
                 agent: status_entry.agent,
                 status: status_entry.status,
             })?;
