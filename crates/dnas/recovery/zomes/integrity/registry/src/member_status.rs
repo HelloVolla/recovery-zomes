@@ -12,6 +12,8 @@ use integrity_types::MemberStatus;
 pub struct MemberStatusEntry {
     /// The agent public key this status applies to
     pub agent: AgentPubKey,
+    /// Timestamp of creation
+    pub timestamp: Timestamp,
     /// The membership status
     pub status: MemberStatus,
 }

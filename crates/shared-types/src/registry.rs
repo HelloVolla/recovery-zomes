@@ -6,6 +6,8 @@ pub struct RegistryMemberWithStatus {
     pub agent: AgentPubKey,
     pub display_name: Option<String>,
     pub status: MemberStatus,
+    /// Unix timestamp (microseconds) of when the member was originally registered
+    pub timestamp: Timestamp,
 }
 
 /// Input for inviting a registry member
@@ -14,6 +16,7 @@ pub struct InviteMemberInput {
     pub agent: AgentPubKey,
     pub display_name: Option<String>,
     pub invite_code_base64: String,
+    pub timestamp: Timestamp,
 }
 
 /// Input for setting a member's status (creates a new MemberStatusEntry)
@@ -21,6 +24,7 @@ pub struct InviteMemberInput {
 pub struct SetMemberStatusInput {
     pub agent: AgentPubKey,
     pub new_status: MemberStatus,
+    pub timestamp: Timestamp,
 }
 
 /// Input for inviting an agent to a bundle

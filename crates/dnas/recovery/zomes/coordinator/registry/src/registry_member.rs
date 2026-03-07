@@ -15,6 +15,7 @@ fn get_registry_anchor() -> ExternResult<AnyLinkableHash> {
 pub fn invite_member(input: InviteMemberInput) -> ExternResult<ActionHash> {
     let member = RegistryMember {
         agent: input.agent.clone(),
+        timestamp: input.timestamp,
         display_name: input.display_name,
     };
 
@@ -39,7 +40,8 @@ pub fn invite_member(input: InviteMemberInput) -> ExternResult<ActionHash> {
     // Create the initial "Invited" status entry and link it
     set_member_status(SetMemberStatusInput {
         agent: input.agent,
-        new_status: MemberStatus::Invited(input.invite_code_base64),
+        new_status: shared_types::MemberStatus::Invited(input.invite_code_base64),
+        timestamp: input.timestamp,
     })?;
 
     Ok(action_hash)
@@ -53,6 +55,7 @@ pub fn invite_member(input: InviteMemberInput) -> ExternResult<ActionHash> {
 pub fn set_member_status(input: SetMemberStatusInput) -> ExternResult<ActionHash> {
     let status_entry = MemberStatusEntry {
         agent: input.agent.clone(),
+        timestamp: input.timestamp,
         status: input.new_status,
     };
 
@@ -206,6 +209,7 @@ pub fn get_member_with_status(agent: AgentPubKey) -> ExternResult<RegistryMember
         agent: agent.clone(),
         display_name: member.as_ref().map(|m| m.display_name.clone()).unwrap(),
         status: status.as_ref().map(|s| s.status.clone()).unwrap(),
+        timestamp: member.as_ref().map(|m| m.timestamp).unwrap(),
     })
 }
 
@@ -244,6 +248,7 @@ pub fn get_all_members_with_statuses(_: ()) -> ExternResult<Vec<RegistryMemberWi
                             agent: member.agent,
                             display_name: member.display_name,
                             status: status_entry.status,
+                            timestamp: member.timestamp,
                         });
                     } else {
                         debug!(
@@ -257,24 +262,6 @@ pub fn get_all_members_with_statuses(_: ()) -> ExternResult<Vec<RegistryMemberWi
     }
 
     Ok(result)
-}
-
-/// Mark a member as active by agent pub key
-#[hdk_extern]
-pub fn accept_member_by_agent(agent: AgentPubKey) -> ExternResult<ActionHash> {
-    set_member_status(SetMemberStatusInput {
-        agent,
-        new_status: MemberStatus::Active,
-    })
-}
-
-/// Revoke a member by agent pub key
-#[hdk_extern]
-pub fn revoke_member_by_agent(agent: AgentPubKey) -> ExternResult<ActionHash> {
-    set_member_status(SetMemberStatusInput {
-        agent,
-        new_status: MemberStatus::Revoked,
-    })
 }
 
 /// Remove a registry member by their action hash

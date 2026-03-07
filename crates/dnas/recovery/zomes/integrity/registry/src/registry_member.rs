@@ -10,6 +10,8 @@ use hdi::prelude::*;
 pub struct RegistryMember {
     /// The agent public key of the member
     pub agent: AgentPubKey,
+    /// Timestamp of creation
+    pub timestamp: Timestamp,
     /// Optional display name for the member
     pub display_name: Option<String>,
 }

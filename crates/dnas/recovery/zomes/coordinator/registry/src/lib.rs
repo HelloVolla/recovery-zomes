@@ -98,12 +98,14 @@ fn signal_action(action: SignedActionHashed) -> ExternResult<()> {
             emit_local_and_remote_signal(&Signal::RegistryMemberCreated {
                 agent: member.agent,
                 display_name: member.display_name,
+                timestamp: member.timestamp,
             })?;
         }
         Some(EntryTypes::MemberStatusEntry(status_entry)) => {
             emit_local_and_remote_signal(&Signal::RegistryMemberStatusSet {
                 agent: status_entry.agent,
                 status: status_entry.status,
+                timestamp: status_entry.timestamp,
             })?;
         }
         _ => {}

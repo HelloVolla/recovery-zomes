@@ -9,9 +9,11 @@ pub enum Signal {
     RegistryMemberCreated {
         agent: AgentPubKey,
         display_name: Option<String>,
+        timestamp: Timestamp,
     },
     RegistryMemberStatusSet {
         agent: AgentPubKey,
         status: MemberStatus,
+        timestamp: Timestamp,
     },
 }
