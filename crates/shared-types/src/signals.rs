@@ -16,4 +16,9 @@ pub enum Signal {
         status: MemberStatus,
         timestamp: Timestamp,
     },
+    InviteAgentToBundle {
+        agent: AgentPubKey,
+        network_seed: String,
+        invite_code_base64: String,
+    },
 }

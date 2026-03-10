@@ -10,7 +10,7 @@ pub fn invite_agent_to_bundle(input: InviteAgentToBundleInput) -> ExternResult<A
     let member = BundleMember {
         agent: input.agent.clone(),
         network_seed: input.network_seed.clone(),
-        status: MemberStatus::Invited(input.invite_code_base64),
+        status: MemberStatus::Invited(input.invite_code_base64.clone()),
     };
 
     let action_hash = create_entry(&EntryTypes::BundleMember(member.clone()))?;
@@ -31,6 +31,16 @@ pub fn invite_agent_to_bundle(input: InviteAgentToBundleInput) -> ExternResult<A
         action_hash.clone(),
         LinkTypes::AgentToBundleMembers,
         LinkTag::new(member.network_seed.as_bytes().to_vec()),
+    )?;
+
+    // Notify the invited agent directly so their device can clone the bundle cell.
+    send_remote_signal(
+        Signal::InviteAgentToBundle {
+            agent: input.agent.clone(),
+            network_seed: input.network_seed.clone(),
+            invite_code_base64: input.invite_code_base64.clone(),
+        },
+        vec![input.agent.clone()],
     )?;
 
     Ok(action_hash)
