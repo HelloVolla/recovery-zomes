@@ -3,8 +3,8 @@ pub use serde::{Deserialize, Serialize};
 
 pub use integrity_types::*;
 
-pub mod bundle_members;
-pub use bundle_members::*;
+pub mod bundle;
+pub use bundle::*;
 pub mod registry;
 pub use registry::*;
 pub mod remote;

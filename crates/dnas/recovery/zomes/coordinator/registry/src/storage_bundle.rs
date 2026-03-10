@@ -1,15 +1,7 @@
 
 use hdk::prelude::*;
 use registry_integrity::*;
-
-/// Input for registering a new storage bundle
-#[derive(Serialize, Deserialize, Debug)]
-pub struct RegisterBundleInput {
-    pub network_seed: String,
-    pub progenitor: AgentPubKey,
-    pub network_pub_key: Vec<u8>,
-    pub dna_hash: Vec<u8>,
-}
+use shared_types::RegisterBundleInput;
 
 /// Get a fixed anchor hash for linking all storage bundles
 fn get_storage_bundle_anchor() -> ExternResult<AnyLinkableHash> {
