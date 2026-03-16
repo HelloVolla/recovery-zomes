@@ -21,4 +21,9 @@ pub enum Signal {
         network_seed: String,
         invite_code_base64: String,
     },
+    BundleMemberCreated {
+        agent: AgentPubKey,
+        network_seed: String,
+        status: MemberStatus,
+    },
 }

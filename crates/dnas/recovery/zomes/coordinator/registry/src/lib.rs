@@ -108,6 +108,13 @@ fn signal_action(action: SignedActionHashed) -> ExternResult<()> {
                 timestamp: status_entry.timestamp,
             })?;
         }
+        Some(EntryTypes::BundleMember(member)) => {
+            emit_local_and_remote_signal(&Signal::BundleMemberCreated {
+                agent: member.agent,
+                network_seed: member.network_seed,
+                status: member.status,
+            })?;
+        }
         _ => {}
     }
 
