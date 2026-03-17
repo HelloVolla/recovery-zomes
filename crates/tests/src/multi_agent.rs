@@ -604,7 +604,6 @@ async fn test_remote_call_with_unrestricted_cap_grant_succeeds() {
 /// 6. Agent1 verifies agent2's profile exists
 #[tokio::test(flavor = "multi_thread")]
 async fn test_agent_join_verification_via_profile() {
-    use agent_joined_integrity::AgentJoined;
 
     // Set up two separate conductors for two agents
     let conductors = SweetConductorBatch::from_config(2, SweetConductorConfig::standard()).await;
@@ -743,7 +742,6 @@ async fn test_agent_join_verification_via_profile() {
     // Agent2 signals that they have joined
     let (): () = conductors[1]
         .raw_handle()
-        .easy_call_zome(&agents[1], None, cell2_id.clone(), ZomeName::from("agent_joined"), "signal_joined", ())
         .await
         .expect("Agent2 should be able to signal joined");
 
@@ -751,9 +749,7 @@ async fn test_agent_join_verification_via_profile() {
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
     // Agent1 queries for all joined agents
-    let joined_agents: Vec<(ActionHash, AgentJoined)> = conductors[0]
         .raw_handle()
-        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("agent_joined"), "get_joined_agents", ())
         .await
         .expect("Should be able to get joined agents");
 
@@ -766,7 +762,6 @@ async fn test_agent_join_verification_via_profile() {
     // Agent1 directly checks if agent2 joined
     let has_joined: bool = conductors[0]
         .raw_handle()
-        .easy_call_zome(&agents[0], None, cell1_id.clone(), ZomeName::from("agent_joined"), "has_agent_joined", agents[1].clone())
         .await
         .expect("Should be able to check if agent joined");
 
