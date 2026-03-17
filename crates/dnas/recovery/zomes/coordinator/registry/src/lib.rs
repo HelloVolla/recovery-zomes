@@ -1,7 +1,7 @@
 pub mod registry_member;
 pub use registry_member::*;
 pub mod storage_bundle;
-use shared_types::Signal;
+use shared_types::{SignalWithOrigin, Signal};
 pub use storage_bundle::*;
 pub mod bundle_member;
 pub use bundle_member::*;
@@ -29,11 +29,10 @@ pub fn init() -> ExternResult<InitCallbackResult> {
     Ok(InitCallbackResult::Pass)
 }
 
-// Handle remote signals
+/// Handle remote signals by re-emitting the signal to the UI.
 #[hdk_extern]
 pub fn recv_remote_signal(signal: Signal) -> ExternResult<()> {
-    // Re-emit as a local signal for the UI/client to handle
-    emit_signal(signal)?;
+    emit_signal(SignalWithOrigin::Remote(signal))?;
     Ok(())
 }
 
@@ -48,7 +47,7 @@ pub fn post_commit(committed_actions: Vec<SignedActionHashed>) {
 }
 
 fn emit_local_and_remote_signal(signal: &Signal) -> ExternResult<()> {
-    emit_signal(signal.clone())?;
+    emit_signal(SignalWithOrigin::Local(signal.clone()))?;
 
     let mut agents = get_members_pub_keys(())?;
 
@@ -64,7 +63,7 @@ fn emit_local_and_remote_signal(signal: &Signal) -> ExternResult<()> {
         }
     }
 
-    send_remote_signal(signal.clone(), agents)?;
+    send_remote_signal(SignalWithOrigin::Remote(signal.clone()), agents)?;
 
     Ok(())
 }

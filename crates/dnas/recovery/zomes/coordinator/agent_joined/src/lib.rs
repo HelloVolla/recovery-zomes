@@ -6,53 +6,13 @@
 
 use hdk::prelude::*;
 use agent_joined_integrity::*;
-use shared_types::Signal;
 
 /// Well-known anchor path for all joined agents
 const AGENTS_ANCHOR: &str = "all_agents";
 
 #[hdk_extern]
 pub fn init(_: ()) -> ExternResult<InitCallbackResult> {
-    let mut fns = HashSet::new();
-    fns.insert((zome_info()?.name, "recv_remote_signal".into()));
-    create_cap_grant(ZomeCallCapGrant {
-        tag: "remote signals".into(),
-        access: CapAccess::Unrestricted,
-        functions: GrantedFunctions::Listed(fns),
-    })?;
     Ok(InitCallbackResult::Pass)
-}
-
-// Post commit callback
-#[hdk_extern(infallible)]
-pub fn post_commit(committed_actions: Vec<SignedActionHashed>) {
-    for action in committed_actions {
-        // Only handle cases where an entry is being created.
-        if let Action::Create(create_action) = action.action() {
-            let entry_hash = create_action.entry_hash.clone();
-
-            if let Ok(Some(record)) = get(entry_hash, GetOptions::local()) {
-                if let Some(agent_joined) = record.entry().to_app_option::<AgentJoined>().ok().flatten() {
-                    let signal = Signal::AgentJoined { agent: agent_joined.agent.clone() };
-                    emit_signal(&signal).ok();
-
-                    // Only signal to the progenitor pub key that is contained in the dna properties
-                    if let Ok(dna_info) = dna_info() {
-                        if let Ok(properties) = shared_types::Properties::try_from(dna_info.modifiers.properties) {
-                            send_remote_signal(&signal, vec![properties.progenitor_pub_key]).ok();
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// Handle remote signals
-#[hdk_extern]
-pub fn recv_remote_signal(signal: Signal) -> ExternResult<()> {
-    emit_signal(signal)?;
-    Ok(())
 }
 
 /// Signal that the current agent has joined the network.
