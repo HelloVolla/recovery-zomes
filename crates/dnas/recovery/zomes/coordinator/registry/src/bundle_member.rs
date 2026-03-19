@@ -2,7 +2,7 @@ use crate::*;
 
 use hdk::prelude::*;
 use registry_integrity::*;
-use shared_types::{SignalWithOrigin, InviteAgentToBundleInput, MemberStatus, SetBundleMemberStatusInput};
+use shared_types::{InviteAgentToBundleInput, MemberStatus, SetBundleMemberStatusInput};
 
 /// Add an agent as a member of a storage bundle with an initial `Invited` status.
 #[hdk_extern]
@@ -35,11 +35,11 @@ pub fn invite_agent_to_bundle(input: InviteAgentToBundleInput) -> ExternResult<A
 
     // Notify the invited agent directly so their device can clone the bundle cell.
     send_remote_signal(
-        SignalWithOrigin::Remote(Signal::InviteAgentToBundle {
+        Signal::InviteAgentToBundle {
             agent: input.agent.clone(),
             network_seed: input.network_seed.clone(),
             invite_code_base64: input.invite_code_base64.clone(),
-        }),
+        },
         vec![input.agent.clone()],
     )?;
 

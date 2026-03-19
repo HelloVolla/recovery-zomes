@@ -63,7 +63,7 @@ fn emit_local_and_remote_signal(signal: &Signal) -> ExternResult<()> {
         }
     }
 
-    send_remote_signal(SignalWithOrigin::Remote(signal.clone()), agents)?;
+    send_remote_signal(signal.clone(), agents)?;
 
     Ok(())
 }
