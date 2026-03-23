@@ -1,4 +1,5 @@
 use hdi::prelude::*;
+use integrity_types::ContentType;
 
 /// Main storage entry containing metadata and references to data chunks
 /// All actual data is stored in DataChunk entries, referenced by EntryHash
@@ -8,9 +9,11 @@ pub struct StorageEntry {
     /// Human-readable label for this data
     pub label: String,
     /// Content type
-    pub content_type: String,
+    pub content_type: ContentType,
     /// Total size in bytes
     pub size: usize,
+    /// Last modified timestamp
+    pub last_modified: Timestamp,
     /// Timestamp when the data was collected
     pub timestamp: Timestamp,
     /// Optional custom metadata as JSON

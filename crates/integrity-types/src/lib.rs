@@ -1,6 +1,8 @@
 pub use hdi::prelude::*;
 pub use serde::{Deserialize, Serialize};
 
+pub mod bundle;
+pub use bundle::*;
 pub mod membrane;
 pub use membrane::*;
 pub mod properties;
