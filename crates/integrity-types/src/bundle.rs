@@ -4,6 +4,7 @@ use crate::*;
 pub enum ContentType {
     Apk,
     AppData,
+    Audio,
     Calendar,
     Contact,
     Document,
