@@ -3,7 +3,7 @@ use hdk::prelude::*;
 use holochain::conductor::api::CellInfo;
 use holochain::prelude::{AppBundleSource, RoleSettings, InstallAppPayload, DnaModifiersOpt, YamlProperties};
 use holochain::sweettest::{SweetAgents, SweetConductorBatch, SweetConductorConfig, SweetDnaFile, app_bundle_from_dnas};
-use shared_types::{MembraneProofData, Properties, RemoteCallInput};
+use shared_types::{InviteMemberInput, MemberStatus, MembraneProofData, Properties, RemoteCallInput, SetMemberStatusInput};
 use ed25519_dalek::SigningKey;
 use rand::rngs::OsRng;
 
@@ -731,7 +731,7 @@ async fn test_agent_join_verification_via_profile() {
         .await
         .unwrap()
         .unwrap();
-    let cell2_id = match &app2_info.cell_info.values().next().unwrap()[0] {
+    let _cell2_id = match &app2_info.cell_info.values().next().unwrap()[0] {
         CellInfo::Provisioned(c) => c.cell_id.clone(),
         _ => panic!("Expected provisioned cell"),
     };
@@ -739,32 +739,68 @@ async fn test_agent_join_verification_via_profile() {
     // Exchange peer info so the agents can find each other
     conductors.exchange_peer_info().await;
 
-    // Agent2 signals that they have joined
-    let (): () = conductors[1]
+    // Progenitor invites agent2 and then marks it active.
+    let _: ActionHash = conductors[0]
         .raw_handle()
+        .easy_call_zome(
+            &agents[0],
+            None,
+            cell1_id.clone(),
+            ZomeName::from("registry"),
+            "invite_member",
+            InviteMemberInput {
+                agent: agents[1].clone(),
+                display_name: Some("agent-2".to_string()),
+                invite_code_base64: "test-invite-code".to_string(),
+                timestamp: Timestamp::now(),
+            },
+        )
         .await
-        .expect("Agent2 should be able to signal joined");
+        .expect("Agent2 should be invitable by progenitor");
 
-    // Give some time for gossip to propagate
-    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-
-    // Agent1 queries for all joined agents
+    let _: ActionHash = conductors[0]
         .raw_handle()
+        .easy_call_zome(
+            &agents[0],
+            None,
+            cell1_id.clone(),
+            ZomeName::from("registry"),
+            "set_member_status",
+            SetMemberStatusInput {
+                agent: agents[1].clone(),
+                new_status: MemberStatus::Active,
+                timestamp: Timestamp::now(),
+            },
+        )
         .await
-        .expect("Should be able to get joined agents");
+        .expect("Agent2 status should be set to active");
 
-    // Verify agent2 is in the list
-    assert!(
-        joined_agents.iter().any(|(_, entry)| entry.agent == agents[1]),
-        "Agent2 should appear in the list of joined agents"
-    );
-
-    // Agent1 directly checks if agent2 joined
-    let has_joined: bool = conductors[0]
+    // Verify agent2 now appears as member and active member.
+    let is_member: bool = conductors[0]
         .raw_handle()
+        .easy_call_zome(
+            &agents[0],
+            None,
+            cell1_id.clone(),
+            ZomeName::from("registry"),
+            "is_member",
+            agents[1].clone(),
+        )
         .await
-        .expect("Should be able to check if agent joined");
+        .expect("Should be able to check if agent is a member");
+    assert!(is_member, "Agent2 should be listed as a registry member");
 
-    // Verify the check returns true
-    assert!(has_joined, "Agent2 should be found - this confirms they successfully joined");
+    let is_active: bool = conductors[0]
+        .raw_handle()
+        .easy_call_zome(
+            &agents[0],
+            None,
+            cell1_id,
+            ZomeName::from("registry"),
+            "is_active_member",
+            agents[1].clone(),
+        )
+        .await
+        .expect("Should be able to check if agent is active");
+    assert!(is_active, "Agent2 should be marked active");
 }

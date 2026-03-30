@@ -1,6 +1,7 @@
 use crate::dna_path::*;
 use hdk::prelude::*;
 use holochain::sweettest::{SweetConductor, SweetDnaFile};
+use shared_types::ContentType;
 use storage_integrity::{Chunk, StorageEntry};
 
 /// Test chunk creation and retrieval lifecycle
@@ -70,8 +71,9 @@ async fn test_storage_entry_creation() {
     // Create storage entry with chunk references
     let storage_entry = StorageEntry {
         label: "test_file.txt".to_string(),
-        content_type: "text/plain".to_string(),
+        content_type: ContentType::Other("text/plain".to_string()),
         size: 6,
+        last_modified: Timestamp::now(),
         timestamp: Timestamp::now(),
         custom_metadata: None,
         chunk_hashes: vec![chunk1_entry_hash.clone(), chunk2_entry_hash.clone()],
@@ -130,8 +132,9 @@ async fn test_get_all_storage_entries() {
     // Create first storage entry
     let storage_entry1 = StorageEntry {
         label: "file1.txt".to_string(),
-        content_type: "text/plain".to_string(),
+        content_type: ContentType::Other("text/plain".to_string()),
         size: 3,
+        last_modified: Timestamp::now(),
         timestamp: Timestamp::now(),
         custom_metadata: None,
         chunk_hashes: vec![chunk1_entry_hash],
@@ -151,8 +154,9 @@ async fn test_get_all_storage_entries() {
     // Create second storage entry
     let storage_entry2 = StorageEntry {
         label: "file2.bin".to_string(),
-        content_type: "application/octet-stream".to_string(),
+        content_type: ContentType::Other("application/octet-stream".to_string()),
         size: 4,
+        last_modified: Timestamp::now(),
         timestamp: Timestamp::now(),
         custom_metadata: Some(SerializedBytes::from(UnsafeBytes::from("custom data".as_bytes().to_vec()))),
         chunk_hashes: vec![chunk2_entry_hash],
@@ -222,8 +226,9 @@ async fn test_file_upload_download_roundtrip() {
     // Create storage entry with chunk references
     let storage_entry = StorageEntry {
         label: "test_roundtrip.bin".to_string(),
-        content_type: "application/octet-stream".to_string(),
+        content_type: ContentType::Other("application/octet-stream".to_string()),
         size: test_data.len(),
+        last_modified: Timestamp::now(),
         timestamp: Timestamp::now(),
         custom_metadata: None,
         chunk_hashes: chunk_entry_hashes,

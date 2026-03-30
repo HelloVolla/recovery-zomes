@@ -6,7 +6,20 @@ use holochain::sweettest::{SweetAgents, SweetConductor, SweetDnaFile, app_bundle
 use shared_types::{Properties, MemberStatus, InviteAgentToBundleInput, InviteMemberInput, SetMemberStatusInput, SetBundleMemberStatusInput, RegistryMemberWithStatus};
 use ed25519_dalek::SigningKey;
 use rand::rngs::OsRng;
-use registry_integrity::{BundleMember, MemberStatusEntry};
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct TestBundleMember {
+    pub agent: AgentPubKey,
+    pub network_seed: String,
+    pub status: MemberStatus,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct TestMemberStatusEntry {
+    pub agent: AgentPubKey,
+    pub timestamp: Timestamp,
+    pub status: MemberStatus,
+}
 
 /// Test that `set_bundle_member_status` correctly creates new `BundleMember` entries
 /// for an agent and that `get_bundle_members` deduplicates by agent, returning only
@@ -67,7 +80,7 @@ async fn test_set_bundle_member_status_deduplicates() {
         .unwrap();
 
     // Sanity check: one member entry, status Invited
-    let members_after_invite: Vec<(ActionHash, BundleMember)> = conductor
+    let members_after_invite: Vec<(ActionHash, TestBundleMember)> = conductor
         .raw_handle()
         .easy_call_zome(
             &progenitor,
@@ -126,7 +139,7 @@ async fn test_set_bundle_member_status_deduplicates() {
 
     // get_bundle_members must return exactly one entry per agent (deduplicated),
     // reflecting only the latest status update (Revoked).
-    let members_final: Vec<(ActionHash, BundleMember)> = conductor
+    let members_final: Vec<(ActionHash, TestBundleMember)> = conductor
         .raw_handle()
         .easy_call_zome(
             &progenitor,
@@ -163,7 +176,7 @@ async fn test_set_bundle_member_status_deduplicates() {
 async fn setup_registry_single_agent(
     network_seed: &str,
 ) -> (SweetConductor, AgentPubKey, holochain::prelude::CellId) {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let conductor = SweetConductor::from_standard_config().await;
     let agent = SweetAgents::one(conductor.keystore()).await;
 
     let signing_key = SigningKey::generate(&mut OsRng);
@@ -239,6 +252,7 @@ async fn test_get_member_with_status_combined_view() {
         agent: invitee.clone(),
         display_name: Some("Alice".to_string()),
         invite_code_base64: "fake-invite-code-base64".to_string(),
+        timestamp: Timestamp::now(),
     };
 
     // Invite the member (creates RegistryMember + Invited status)
@@ -259,6 +273,7 @@ async fn test_get_member_with_status_combined_view() {
     let status_input = SetMemberStatusInput {
         agent: invitee.clone(),
         new_status: MemberStatus::Active,
+        timestamp: Timestamp::now(),
     };
     let _: ActionHash = conductor
         .raw_handle()
@@ -324,6 +339,7 @@ async fn test_get_member_status_returns_latest() {
             SetMemberStatusInput {
                 agent: invitee.clone(),
                 new_status: MemberStatus::Invited("code-abc".to_string()),
+                timestamp: Timestamp::now(),
             },
         )
         .await
@@ -344,6 +360,7 @@ async fn test_get_member_status_returns_latest() {
             SetMemberStatusInput {
                 agent: invitee.clone(),
                 new_status: MemberStatus::Active,
+                timestamp: Timestamp::now(),
             },
         )
         .await
@@ -363,13 +380,14 @@ async fn test_get_member_status_returns_latest() {
             SetMemberStatusInput {
                 agent: invitee.clone(),
                 new_status: MemberStatus::Revoked,
+                timestamp: Timestamp::now(),
             },
         )
         .await
         .unwrap();
 
     // get_member_status returns Option<(ActionHash, MemberStatusEntry)>
-    let result: Option<(ActionHash, MemberStatusEntry)> = conductor
+    let result: Option<(ActionHash, TestMemberStatusEntry)> = conductor
         .raw_handle()
         .easy_call_zome(
             &progenitor,
