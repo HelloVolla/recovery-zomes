@@ -1,5 +1,7 @@
 pub mod registry_member;
 pub use registry_member::*;
+pub mod ping;
+pub use ping::*;
 pub mod storage_bundle;
 use shared_types::{SignalWithOrigin, Signal};
 pub use storage_bundle::*;
@@ -19,6 +21,7 @@ pub fn init() -> ExternResult<InitCallbackResult> {
     // Grant unrestricted access to certain functions that should be remotely callable
     let mut functions = HashSet::new();
     functions.insert((zome_info()?.name, "recv_remote_signal".into()));
+    functions.insert((zome_info()?.name, "ping".into()));
 
     create_cap_grant(ZomeCallCapGrant {
         tag: "registry_remote".into(),

@@ -2,6 +2,32 @@ use hdk::prelude::*;
 use registry_integrity::*;
 use shared_types::{InviteMemberInput, MemberStatus, RegistryMemberWithStatus, SetMemberStatusInput};
 
+fn ping_registry_agent(agent: AgentPubKey) -> ExternResult<bool> {
+    let payload = ExternIO::encode(serde_bytes::ByteBuf::from(vec![]))
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Failed to encode ping payload: {}", e))))?;
+
+    let response = call_remote(
+        agent,
+        zome_info()?.name,
+        FunctionName::from("ping"),
+        None,
+        payload,
+    )?;
+
+    match response {
+        ZomeCallResponse::Ok(extern_io) => {
+            let pong: String = extern_io
+                .decode()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Failed to decode ping response: {}", e))))?;
+            Ok(pong == "pong")
+        }
+        ZomeCallResponse::Unauthorized(_, _, _, _) => Ok(false),
+        ZomeCallResponse::NetworkError(_) => Ok(false),
+        ZomeCallResponse::CountersigningSession(_) => Ok(false),
+        ZomeCallResponse::AuthenticationFailed(_, _) => Ok(false),
+    }
+}
+
 /// Get a fixed anchor hash for linking all registry members
 fn get_registry_anchor() -> ExternResult<AnyLinkableHash> {
     let path = Path::from("all_registry_members");
@@ -283,6 +309,37 @@ pub fn is_active_member(agent: AgentPubKey) -> ExternResult<bool> {
         return Ok(matches!(status_entry.status, MemberStatus::Active));
     }
     Ok(false)
+}
+
+#[hdk_extern]
+pub fn is_peer_online(agent: AgentPubKey) -> ExternResult<bool> {
+    let my_agent = agent_info()?.agent_initial_pubkey;
+    if agent == my_agent {
+        return Ok(true);
+    }
+
+    ping_registry_agent(agent)
+}
+
+#[hdk_extern]
+pub fn get_online_registry_members(_: ()) -> ExternResult<Vec<RegistryMember>> {
+    let my_agent = agent_info()?.agent_initial_pubkey;
+    let members = get_registry_members(())?;
+    let mut online_members = Vec::new();
+
+    for (_, member) in members {
+        let is_online = if member.agent == my_agent {
+            true
+        } else {
+            ping_registry_agent(member.agent.clone())?
+        };
+
+        if is_online {
+            online_members.push(member);
+        }
+    }
+
+    Ok(online_members)
 }
 
 /// Check if the current cell is a registry cell
