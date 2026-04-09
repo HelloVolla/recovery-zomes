@@ -1,5 +1,5 @@
 use hdi::prelude::*;
-use integrity_types::ContentType;
+use integrity_types::{ContentType, ContentMetadata};
 
 /// Main storage entry containing metadata and references to data chunks
 /// All actual data is stored in DataChunk entries, referenced by EntryHash
@@ -16,8 +16,8 @@ pub struct StorageEntry {
     pub last_modified: Timestamp,
     /// Timestamp when the data was collected
     pub timestamp: Timestamp,
-    /// Optional custom metadata as JSON
-    pub custom_metadata: Option<SerializedBytes>,
+    /// Optional strongly-typed metadata for specific content types
+    pub metadata: Option<ContentMetadata>,
     /// Ordered list of chunk hashes that make up the complete data
     pub chunk_hashes: Vec<EntryHash>,
 }
