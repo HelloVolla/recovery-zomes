@@ -1,7 +1,7 @@
 use crate::dna_path::*;
 use hdk::prelude::*;
 use holochain::sweettest::{SweetConductor, SweetDnaFile};
-use shared_types::ContentType;
+use shared_types::{ContentMetadata, ContentType};
 use storage_integrity::{Chunk, StorageEntry};
 
 /// Test chunk creation and retrieval lifecycle
@@ -75,7 +75,7 @@ async fn test_storage_entry_creation() {
         size: 6,
         last_modified: Timestamp::now(),
         timestamp: Timestamp::now(),
-        custom_metadata: None,
+        metadata: None,
         chunk_hashes: vec![chunk1_entry_hash.clone(), chunk2_entry_hash.clone()],
     };
 
@@ -136,7 +136,7 @@ async fn test_get_all_storage_entries() {
         size: 3,
         last_modified: Timestamp::now(),
         timestamp: Timestamp::now(),
-        custom_metadata: None,
+        metadata: None,
         chunk_hashes: vec![chunk1_entry_hash],
     };
 
@@ -158,7 +158,7 @@ async fn test_get_all_storage_entries() {
         size: 4,
         last_modified: Timestamp::now(),
         timestamp: Timestamp::now(),
-        custom_metadata: Some(SerializedBytes::from(UnsafeBytes::from("custom data".as_bytes().to_vec()))),
+        metadata: Some(ContentMetadata::Message),
         chunk_hashes: vec![chunk2_entry_hash],
     };
 
@@ -230,7 +230,7 @@ async fn test_file_upload_download_roundtrip() {
         size: test_data.len(),
         last_modified: Timestamp::now(),
         timestamp: Timestamp::now(),
-        custom_metadata: None,
+        metadata: None,
         chunk_hashes: chunk_entry_hashes,
     };
 
