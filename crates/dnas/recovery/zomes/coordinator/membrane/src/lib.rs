@@ -103,8 +103,12 @@ pub fn generate_invite_code(input: GenerateInviteCodeInput) -> ExternResult<Invi
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Failed to deserialize DNA properties: {:?}", e))))?;
     let network_pub_key = properties.network_pub_key.clone();
 
-    // Get the signing key seed from the source chain
-    let seed_array = get_signing_key_seed()?;
+    // Get the signing key seed from the source chain, only if needed
+    let seed_array = if input.for_agent_pub_key.is_some() {
+        Some(get_signing_key_seed()?)
+    } else {
+        None
+    };
 
     // Delegate to the pure function in shared-types
     InviteCode::generate(
@@ -112,7 +116,7 @@ pub fn generate_invite_code(input: GenerateInviteCodeInput) -> ExternResult<Invi
         progenitor_pub_key,
         network_pub_key,
         dna_hash,
-        &seed_array,
+        seed_array.as_ref(),
         input.for_agent_pub_key,
     )
 }

@@ -71,7 +71,7 @@ impl InviteCode {
         progenitor_pub_key: Vec<u8>,
         network_pub_key: Vec<u8>,
         dna_hash: Vec<u8>,
-        signing_key_seed: &[u8; 32],
+        signing_key_seed: Option<&[u8; 32]>,
         for_agent_pub_key: Option<Vec<u8>>,
     ) -> ExternResult<Self> {
         let mut membrane_proof_bytes = None;
@@ -89,8 +89,10 @@ impl InviteCode {
             };
 
             // Generate the membrane proof using the signing key seed
-            if let Ok(proof) = membrane_proof_data.get_signed_membrane_proof_bytes(signing_key_seed) {
-                membrane_proof_bytes = Some(proof.bytes().to_vec());
+            if let Some(seed) = signing_key_seed {
+                if let Ok(proof) = membrane_proof_data.get_signed_membrane_proof_bytes(seed) {
+                    membrane_proof_bytes = Some(proof.bytes().to_vec());
+                }
             }
         }
 
