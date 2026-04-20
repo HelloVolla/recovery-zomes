@@ -1,6 +1,12 @@
 use hdk::prelude::*;
 use storage_integrity::*;
 
+fn get_storage_entry_anchor() -> ExternResult<AnyLinkableHash> {
+    let path = Path::from("all_storage_entries");
+    let entry_hash = path.path_entry_hash()?;
+    Ok(entry_hash.into())
+}
+
 #[hdk_extern]
 pub fn create_storage_entry(storage_entry: StorageEntry) -> ExternResult<Record> {
     let storage_entry_hash = create_entry(&EntryTypes::StorageEntry(storage_entry.clone()))?;
@@ -12,6 +18,12 @@ pub fn create_storage_entry(storage_entry: StorageEntry) -> ExternResult<Record>
             (),
         )?;
     }
+    create_link(
+        get_storage_entry_anchor()?,
+        storage_entry_hash.clone(),
+        LinkTypes::AllStorageEntries,
+        (),
+    )?;
     let record = get(storage_entry_hash.clone(), GetOptions::local())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Could not find the newly created StorageEntry".to_string())
     ))?;
@@ -168,6 +180,24 @@ pub fn delete_storage_entry(original_storage_entry_hash: ActionHash) -> ExternRe
             }
         }
     }
+    let anchor_links = get_links(
+        LinkQuery {
+            base: get_storage_entry_anchor()?,
+            link_type: LinkTypes::AllStorageEntries.try_into_filter()?,
+            tag_prefix: None,
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Local,
+    )?;
+    for link in anchor_links {
+        if let Some(action_hash) = link.target.into_action_hash() {
+            if action_hash == original_storage_entry_hash {
+                delete_link(link.create_link_hash, GetOptions::local())?;
+            }
+        }
+    }
     delete_entry(original_storage_entry_hash)
 }
 
@@ -204,11 +234,26 @@ pub fn get_oldest_delete_for_storage_entry(
 
 #[hdk_extern]
 pub fn get_all_storage_entries(_: ()) -> ExternResult<Vec<Record>> {
-    let storage_entry_type: EntryType = UnitEntryTypes::StorageEntry.try_into()?;
-    let filter = ChainQueryFilter::new()
-        .entry_type(storage_entry_type)
-        .include_entries(true);
-    query(filter)
+    let links = get_links(
+        LinkQuery {
+            base: get_storage_entry_anchor()?,
+            link_type: LinkTypes::AllStorageEntries.try_into_filter()?,
+            tag_prefix: None,
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Local,
+    )?;
+    let mut records = Vec::with_capacity(links.len());
+    for link in links {
+        if let Some(action_hash) = link.target.into_action_hash() {
+            if let Some(record) = get(action_hash, GetOptions::default())? {
+                records.push(record);
+            }
+        }
+    }
+    Ok(records)
 }
 
 #[hdk_extern]
@@ -293,7 +338,7 @@ pub fn get_file(storage_entry_hash: ActionHash) -> ExternResult<Option<Vec<u8>>>
 
 /// Finds a storage entry by its label.
 ///
-/// This function queries all storage entries in the local source chain
+/// This function queries all storage entries via the anchor link pattern
 /// and returns the first one matching the given label.
 ///
 /// # Arguments

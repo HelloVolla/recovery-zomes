@@ -18,6 +18,7 @@ pub enum EntryTypes {
 pub enum LinkTypes {
     ChunkToStorageEntries,
     StorageEntryUpdates,
+    AllStorageEntries,
 }
 
 // This is the unified validation callback for all entries and link types in this integrity zome
@@ -95,6 +96,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 target_address,
                 tag,
             ),
+            LinkTypes::AllStorageEntries => validate_create_link_all_storage_entries(
+                action,
+                base_address,
+                target_address,
+                tag,
+            ),
         },
         FlatOp::RegisterDeleteLink {
             link_type,
@@ -112,6 +119,13 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 tag,
             ),
             LinkTypes::StorageEntryUpdates => validate_delete_link_storage_entry_updates(
+                action,
+                original_action,
+                base_address,
+                target_address,
+                tag,
+            ),
+            LinkTypes::AllStorageEntries => validate_delete_link_all_storage_entries(
                 action,
                 original_action,
                 base_address,
@@ -155,6 +169,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         )
                     }
                     LinkTypes::StorageEntryUpdates => validate_create_link_storage_entry_updates(
+                        action,
+                        base_address,
+                        target_address,
+                        tag,
+                    ),
+                    LinkTypes::AllStorageEntries => validate_create_link_all_storage_entries(
                         action,
                         base_address,
                         target_address,
