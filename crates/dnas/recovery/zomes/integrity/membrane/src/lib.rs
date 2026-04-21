@@ -71,6 +71,12 @@ fn check_agent(
     let props = Properties::try_from(info.modifiers.properties.clone())
         .map_err(|e| wasm_error!(e))?;
 
+    info!(
+        "check_agent: agent_pub_key={:?}, props.progenitor_pub_key={:?}",
+        agent_pub_key,
+        props.progenitor_pub_key
+    );
+
     // Progenitor is always valid
     if agent_pub_key == props.progenitor_pub_key {
         return Ok(ValidateCallbackResult::Valid);
@@ -85,6 +91,15 @@ fn check_agent(
         Some(serialized_proof) => {
             let envelope = MembraneProofEnvelope::try_from((*serialized_proof).clone())
                 .map_err(|e| wasm_error!(e))?;
+
+            info!(
+                "check_agent: membrane_proof network_seed={}, expected={}, for_agent={:?}, expected_agent={:?}, network_pub_key_len={}",
+                envelope.data.network_seed,
+                info.modifiers.network_seed,
+                envelope.data.for_agent,
+                agent_pub_key,
+                envelope.data.network_pub_key.len()
+            );
 
             if envelope.data.network_seed != info.modifiers.network_seed {
                 return Ok(ValidateCallbackResult::Invalid(
