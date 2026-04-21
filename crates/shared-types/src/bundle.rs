@@ -16,3 +16,11 @@ pub struct RegisterBundleInput {
     pub network_pub_key: Vec<u8>,
     pub dna_hash: Vec<u8>,
 }
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct StorageBundleRaw {
+    pub network_seed: String,
+    pub progenitor: AgentPubKey,
+    pub network_pub_key: Vec<u8>,
+    pub dna_hash: Vec<u8>,
+}
