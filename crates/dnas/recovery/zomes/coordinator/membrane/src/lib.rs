@@ -96,12 +96,11 @@ pub fn generate_invite_code(input: GenerateInviteCodeInput) -> ExternResult<Invi
     let dna_info = dna_info()?;
     let network_seed = dna_info.modifiers.network_seed.clone();
     let dna_hash = dna_info.hash.get_raw_39().to_vec();
-    let agent_info = agent_info()?;
-    let progenitor_pub_key: Vec<u8> = agent_info.agent_initial_pubkey.get_raw_39().to_vec();
 
     let properties = Properties::try_from(dna_info.modifiers.properties.clone())
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Failed to deserialize DNA properties: {:?}", e))))?;
     let network_pub_key = properties.network_pub_key.clone();
+    let progenitor_pub_key = properties.progenitor_pub_key.clone().get_raw_39().to_vec();
 
     info!(
         "generate_invite_code: progenitor_pub_key raw39={:?}, network_pub_key_len={}",
