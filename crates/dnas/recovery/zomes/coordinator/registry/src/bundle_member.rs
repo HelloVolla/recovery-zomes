@@ -110,7 +110,7 @@ pub fn get_bundle_members(network_seed: String) -> ExternResult<Vec<(ActionHash,
     let mut members = Vec::new();
     for link in links {
         if let Some(action_hash) = link.target.into_action_hash() {
-            if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
+            if let Some(record) = get(action_hash.clone(), GetOptions::local())? {
                 if let Some(member) = record.entry().to_app_option::<BundleMember>().map_err(|e| wasm_error!(e))? {
                     members.push((action_hash, member));
                 }
@@ -146,7 +146,7 @@ pub fn get_agent_bundle_members(agent: AgentPubKey) -> ExternResult<Vec<(ActionH
     let mut members = Vec::new();
     for link in links {
         if let Some(action_hash) = link.target.into_action_hash() {
-            if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
+            if let Some(record) = get(action_hash.clone(), GetOptions::local())? {
                 if let Some(member) = record.entry().to_app_option::<BundleMember>().map_err(|e| wasm_error!(e))? {
                     members.push((action_hash, member));
                 }
@@ -176,7 +176,7 @@ pub fn get_agent_invite_codes(agent: AgentPubKey) -> ExternResult<Vec<String>> {
     let mut invite_codes = Vec::new();
     for link in links {
         if let Some(action_hash) = link.target.into_action_hash() {
-            if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
+            if let Some(record) = get(action_hash.clone(), GetOptions::local())? {
                 if let Some(_) = record.entry().to_app_option::<BundleMember>().map_err(|e| wasm_error!(e))? {
                     // Extract invite code from tag
                     let tag_string = String::from_utf8_lossy(&link.tag.0);

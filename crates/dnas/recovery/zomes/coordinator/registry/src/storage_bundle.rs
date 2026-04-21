@@ -30,7 +30,7 @@ pub fn get_all_storage_bundles(_: ()) -> ExternResult<Vec<(ActionHash, StorageBu
 
     for link in links {
         if let Some(action_hash) = link.target.into_action_hash() {
-            if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
+            if let Some(record) = get(action_hash.clone(), GetOptions::local())? {
                 if let Some(bundle_info) = record.entry().to_app_option::<StorageBundle>().map_err(|e| wasm_error!(e))? {
                     bundles.push((action_hash, bundle_info));
                 }
@@ -61,7 +61,7 @@ pub fn get_storage_bundle_by_network_seed(network_seed: String) -> ExternResult<
 
     for link in links {
         if let Some(action_hash) = link.target.into_action_hash() {
-            if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
+            if let Some(record) = get(action_hash.clone(), GetOptions::local())? {
                 if let Some(bundle_info) = record.entry().to_app_option::<StorageBundle>().map_err(|e| wasm_error!(e))? {
                     bundles.push((action_hash, bundle_info));
                 }

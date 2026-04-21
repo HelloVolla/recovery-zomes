@@ -24,7 +24,7 @@ pub fn get_my_assigned_bundles(_: ()) -> ExternResult<Vec<(ActionHash, BundleMem
 
     for link in links {
         if let Some(action_hash) = link.target.into_action_hash() {
-            if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
+            if let Some(record) = get(action_hash.clone(), GetOptions::local())? {
                 if let Some(member) = record.entry().to_app_option::<BundleMember>().map_err(|e| wasm_error!(e))? {
                     members.push((action_hash, member));
                 }
@@ -52,7 +52,7 @@ pub fn get_invited_bundles(_: ()) -> ExternResult<Vec<(ActionHash, BundleMember)
 /// This should be called by a host agent after they've cloned the bundle DNA.
 #[hdk_extern]
 pub fn mark_bundle_as_cloned(member_action_hash: ActionHash) -> ExternResult<ActionHash> {
-    let record = get(member_action_hash.clone(), GetOptions::default())?
+    let record = get(member_action_hash.clone(), GetOptions::local())?
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Member not found".to_string())))?;
 
     let mut member: BundleMember = record

@@ -248,7 +248,7 @@ pub fn get_all_storage_entries(_: ()) -> ExternResult<Vec<Record>> {
     let mut records = Vec::with_capacity(links.len());
     for link in links {
         if let Some(action_hash) = link.target.into_action_hash() {
-            if let Some(record) = get(action_hash, GetOptions::default())? {
+            if let Some(record) = get(action_hash, GetOptions::local())? {
                 records.push(record);
             }
         }

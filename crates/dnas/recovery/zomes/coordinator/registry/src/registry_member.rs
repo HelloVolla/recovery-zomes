@@ -117,7 +117,7 @@ pub fn get_registry_members(_: ()) -> ExternResult<Vec<(ActionHash, RegistryMemb
 
     for link in links {
         if let Some(action_hash) = link.target.into_action_hash() {
-            if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
+            if let Some(record) = get(action_hash.clone(), GetOptions::local())? {
                 if let Some(member) = record.entry().to_app_option::<RegistryMember>().map_err(|e| wasm_error!(e))? {
                     members.push((action_hash, member));
                 }
@@ -147,7 +147,7 @@ pub fn get_members_pub_keys(_: ()) -> ExternResult<Vec<AgentPubKey>> {
 
     for link in links {
         if let Some(action_hash) = link.target.into_action_hash() {
-            if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
+            if let Some(record) = get(action_hash.clone(), GetOptions::local())? {
                 if let Some(member) = record.entry().to_app_option::<RegistryMember>().map_err(|e| wasm_error!(e))? {
                     agents.push(member.agent);
                 }
@@ -176,7 +176,7 @@ pub fn get_member_by_agent(agent: AgentPubKey) -> ExternResult<Option<(ActionHas
     // Should only be one link per agent
     if let Some(link) = links.first() {
         if let Some(action_hash) = link.target.clone().into_action_hash() {
-            if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
+            if let Some(record) = get(action_hash.clone(), GetOptions::local())? {
                 if let Some(member) = record.entry().to_app_option::<RegistryMember>().map_err(|e| wasm_error!(e))? {
                     return Ok(Some((action_hash, member)));
                 }
