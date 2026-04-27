@@ -63,10 +63,57 @@ pub fn get_latest_storage_entry(
 }
 
 #[hdk_extern]
+pub fn get_latest_storage_entry_from_network(
+    original_storage_entry_hash: ActionHash,
+) -> ExternResult<Option<Record>> {
+    let links = get_links(
+        LinkQuery {
+            base: original_storage_entry_hash.clone().into(),
+            link_type: LinkTypes::StorageEntryUpdates.try_into_filter()?,
+            tag_prefix: None,
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Network,
+    )?;
+    let latest_link = links
+        .into_iter()
+        .max_by(|link_a, link_b| link_a.timestamp.cmp(&link_b.timestamp));
+    let latest_storage_entry_hash = match latest_link {
+        Some(link) => {
+            link.target
+                .clone()
+                .into_action_hash()
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "No action hash associated with link".to_string()
+                )))?
+        }
+        None => original_storage_entry_hash.clone(),
+    };
+    get(latest_storage_entry_hash, GetOptions::network())
+}
+
+#[hdk_extern]
 pub fn get_original_storage_entry(
     original_storage_entry_hash: ActionHash,
 ) -> ExternResult<Option<Record>> {
     let Some(details) = get_details(original_storage_entry_hash, GetOptions::local())? else {
+        return Ok(None);
+    };
+    match details {
+        Details::Record(details) => Ok(Some(details.record)),
+        _ => Err(wasm_error!(WasmErrorInner::Guest(
+            "Malformed get details response".to_string()
+        ))),
+    }
+}
+
+#[hdk_extern]
+pub fn get_original_storage_entry_from_network(
+    original_storage_entry_hash: ActionHash,
+) -> ExternResult<Option<Record>> {
+    let Some(details) = get_details(original_storage_entry_hash, GetOptions::network())? else {
         return Ok(None);
     };
     match details {
@@ -107,6 +154,45 @@ pub fn get_all_revisions_for_storage_entry(
                     )))?
                     .into(),
                 GetOptions::local(),
+            ))
+        })
+        .collect::<ExternResult<Vec<GetInput>>>()?;
+    let records = HDK.with(|hdk| hdk.borrow().get(get_input))?;
+    let mut records: Vec<Record> = records.into_iter().flatten().collect();
+    records.insert(0, original_record);
+    Ok(records)
+}
+
+#[hdk_extern]
+pub fn get_all_revisions_for_storage_entry_from_network(
+    original_storage_entry_hash: ActionHash,
+) -> ExternResult<Vec<Record>> {
+    let Some(original_record) = get_original_storage_entry_from_network(original_storage_entry_hash.clone())?
+    else {
+        return Ok(vec![]);
+    };
+    let links = get_links(
+        LinkQuery {
+            base: original_storage_entry_hash.clone().into(),
+            link_type: LinkTypes::StorageEntryUpdates.try_into_filter()?,
+            tag_prefix: None,
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Network,
+    )?;
+    let get_input: Vec<GetInput> = links
+        .into_iter()
+        .map(|link| {
+            Ok(GetInput::new(
+                link.target
+                    .into_action_hash()
+                    .ok_or(wasm_error!(WasmErrorInner::Guest(
+                        "No action hash associated with link".to_string()
+                    )))?
+                    .into(),
+                GetOptions::network(),
             ))
         })
         .collect::<ExternResult<Vec<GetInput>>>()?;
@@ -257,6 +343,30 @@ pub fn get_all_storage_entries(_: ()) -> ExternResult<Vec<Record>> {
 }
 
 #[hdk_extern]
+pub fn get_all_storage_entries_from_network(_: ()) -> ExternResult<Vec<Record>> {
+    let links = get_links(
+        LinkQuery {
+            base: get_storage_entry_anchor()?,
+            link_type: LinkTypes::AllStorageEntries.try_into_filter()?,
+            tag_prefix: None,
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Network,
+    )?;
+    let mut records = Vec::with_capacity(links.len());
+    for link in links {
+        if let Some(action_hash) = link.target.into_action_hash() {
+            if let Some(record) = get(action_hash, GetOptions::network())? {
+                records.push(record);
+            }
+        }
+    }
+    Ok(records)
+}
+
+#[hdk_extern]
 pub fn get_storage_entries_for_chunk(chunk_hash: EntryHash) -> ExternResult<Vec<Link>> {
     get_links(
         LinkQuery {
@@ -268,6 +378,21 @@ pub fn get_storage_entries_for_chunk(chunk_hash: EntryHash) -> ExternResult<Vec<
             author: None,
         },
         GetStrategy::Local,
+    )
+}
+
+#[hdk_extern]
+pub fn get_storage_entries_for_chunk_from_network(chunk_hash: EntryHash) -> ExternResult<Vec<Link>> {
+    get_links(
+        LinkQuery {
+            base: chunk_hash.clone().into(),
+            link_type: LinkTypes::ChunkToStorageEntries.try_into_filter()?,
+            tag_prefix: None,
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Network,
     )
 }
 
@@ -285,6 +410,28 @@ pub fn get_deleted_storage_entries_for_chunk(
             author: None,
         },
         GetStrategy::Local,
+    )?;
+    Ok(details
+        .into_inner()
+        .into_iter()
+        .filter(|(_link, deletes)| !deletes.is_empty())
+        .collect())
+}
+
+#[hdk_extern]
+pub fn get_deleted_storage_entries_for_chunk_from_network(
+    chunk_hash: EntryHash,
+) -> ExternResult<Vec<(SignedActionHashed, Vec<SignedActionHashed>)>> {
+    let details = get_links_details(
+        LinkQuery {
+            base: chunk_hash.clone().into(),
+            link_type: LinkTypes::ChunkToStorageEntries.try_into_filter()?,
+            tag_prefix: None,
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Network,
     )?;
     Ok(details
         .into_inner()
@@ -336,6 +483,49 @@ pub fn get_file(storage_entry_hash: ActionHash) -> ExternResult<Option<Vec<u8>>>
     Ok(Some(data))
 }
 
+/// Retrieves a complete file from the DHT by fetching the StorageEntry and all its chunks over the network.
+///
+/// This function:
+/// 1. Fetches the latest version of the StorageEntry using the original action hash from the network
+/// 2. Retrieves all chunks referenced in the StorageEntry from the network
+/// 3. Reassembles the chunks in order into the complete file data
+///
+/// # Arguments
+///
+/// * `storage_entry_hash` - The action hash of the original StorageEntry
+///
+/// # Returns
+///
+/// The complete file data as a `Vec<u8>`, or `None` if the StorageEntry is not found.
+/// Returns an error if any chunk cannot be retrieved.
+#[hdk_extern]
+pub fn get_file_from_network(storage_entry_hash: ActionHash) -> ExternResult<Option<Vec<u8>>> {
+    // Get the latest storage entry from the network
+    let Some(record) = get_latest_storage_entry_from_network(storage_entry_hash)? else {
+        return Ok(None);
+    };
+
+    let storage_entry: StorageEntry = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Record has no entry".to_string()
+        )))?;
+
+    // Collect all chunk data in order
+    let mut data = Vec::with_capacity(storage_entry.size);
+    for chunk_hash in storage_entry.chunk_hashes {
+        let chunk = crate::chunk::get_chunk_from_entry_hash_from_network(chunk_hash)?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Chunk not found".to_string()
+            )))?;
+        data.extend(chunk.0.bytes());
+    }
+
+    Ok(Some(data))
+}
+
 /// Finds a storage entry by its label.
 ///
 /// This function queries all storage entries via the anchor link pattern
@@ -351,6 +541,33 @@ pub fn get_file(storage_entry_hash: ActionHash) -> ExternResult<Option<Vec<u8>>>
 #[hdk_extern]
 pub fn get_storage_entry_by_label(label: String) -> ExternResult<Option<Record>> {
     let all_entries = get_all_storage_entries(())?;
+
+    for record in all_entries {
+        if let Some(entry) = record.entry().to_app_option::<StorageEntry>().ok().flatten() {
+            if entry.label == label {
+                return Ok(Some(record));
+            }
+        }
+    }
+
+    Ok(None)
+}
+
+/// Finds a storage entry by its label over the network.
+///
+/// This function queries all storage entries via the anchor link pattern from the network
+/// and returns the first one matching the given label.
+///
+/// # Arguments
+///
+/// * `label` - The label to search for
+///
+/// # Returns
+///
+/// The matching StorageEntry record, or `None` if no entry with that label exists.
+#[hdk_extern]
+pub fn get_storage_entry_by_label_from_network(label: String) -> ExternResult<Option<Record>> {
+    let all_entries = get_all_storage_entries_from_network(())?;
 
     for record in all_entries {
         if let Some(entry) = record.entry().to_app_option::<StorageEntry>().ok().flatten() {
@@ -396,6 +613,48 @@ pub fn get_file_by_label(label: String) -> ExternResult<Option<Vec<u8>>> {
     let mut data = Vec::with_capacity(storage_entry.size);
     for chunk_hash in storage_entry.chunk_hashes {
         let chunk = crate::chunk::get_chunk_from_entry_hash(chunk_hash)?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Chunk not found".to_string()
+            )))?;
+        data.extend(chunk.0.bytes());
+    }
+
+    Ok(Some(data))
+}
+
+/// Retrieves a complete file from the DHT by searching for a StorageEntry with the given label over the network.
+///
+/// This function:
+/// 1. Searches all storage entries for one with the matching label from the network
+/// 2. Retrieves all chunks referenced in the StorageEntry from the network
+/// 3. Reassembles the chunks in order into the complete file data
+///
+/// # Arguments
+///
+/// * `label` - The label of the file to retrieve
+///
+/// # Returns
+///
+/// The complete file data as a `Vec<u8>`, or `None` if no entry with that label exists.
+/// Returns an error if any chunk cannot be retrieved.
+#[hdk_extern]
+pub fn get_file_by_label_from_network(label: String) -> ExternResult<Option<Vec<u8>>> {
+    let Some(record) = get_storage_entry_by_label_from_network(label)? else {
+        return Ok(None);
+    };
+
+    let storage_entry: StorageEntry = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Record has no entry".to_string()
+        )))?;
+
+    // Collect all chunk data in order
+    let mut data = Vec::with_capacity(storage_entry.size);
+    for chunk_hash in storage_entry.chunk_hashes {
+        let chunk = crate::chunk::get_chunk_from_entry_hash_from_network(chunk_hash)?
             .ok_or(wasm_error!(WasmErrorInner::Guest(
                 "Chunk not found".to_string()
             )))?;

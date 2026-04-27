@@ -39,8 +39,38 @@ pub fn get_chunk_from_entry_hash(entry_hash: EntryHash) -> ExternResult<Option<C
 }
 
 #[hdk_extern]
+pub fn get_chunk_from_entry_hash_from_network(entry_hash: EntryHash) -> ExternResult<Option<Chunk>> {
+    let Some(details) = get_details(entry_hash, GetOptions::network())? else {
+        return Ok(None);
+    };
+    match details {
+        Details::Entry(details) => Ok(Some(
+            Chunk::try_from(&details.entry).map_err(|_| {
+                wasm_error!(WasmErrorInner::Guest("Malformed entry".to_string()))
+            })?,
+        )),
+        _ => Err(wasm_error!(WasmErrorInner::Guest(
+            "Malformed get details response".to_string()
+        ))),
+    }
+}
+
+#[hdk_extern]
 pub fn get_chunk(chunk_hash: ActionHash) -> ExternResult<Option<Record>> {
     let Some(details) = get_details(chunk_hash, GetOptions::local())? else {
+        return Ok(None);
+    };
+    match details {
+        Details::Record(details) => Ok(Some(details.record)),
+        _ => Err(wasm_error!(WasmErrorInner::Guest(
+            "Malformed get details response".to_string()
+        ))),
+    }
+}
+
+#[hdk_extern]
+pub fn get_chunk_from_network(chunk_hash: ActionHash) -> ExternResult<Option<Record>> {
+    let Some(details) = get_details(chunk_hash, GetOptions::network())? else {
         return Ok(None);
     };
     match details {
