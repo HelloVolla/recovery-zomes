@@ -11,6 +11,7 @@ pub enum ContentType {
     Image,
     Message,
     Video,
+    Settings,
     Other(String),
 }
 
@@ -44,4 +45,5 @@ pub enum ContentMetadata {
     Calendar,
     Contact,
     Message,
+    Settings,
 }
