@@ -1,10 +1,47 @@
 use hdk::prelude::*;
+use shared_types::ContentType;
 use storage_integrity::*;
 
 fn get_storage_entry_anchor() -> ExternResult<AnyLinkableHash> {
     let path = Path::from("all_storage_entries");
     let entry_hash = path.path_entry_hash()?;
     Ok(entry_hash.into())
+}
+
+fn get_label_anchor() -> ExternResult<AnyLinkableHash> {
+    let path = Path::from("idx_label");
+    let entry_hash = path.path_entry_hash()?;
+    Ok(entry_hash.into())
+}
+
+fn get_type_anchor() -> ExternResult<AnyLinkableHash> {
+    let path = Path::from("idx_type");
+    let entry_hash = path.path_entry_hash()?;
+    Ok(entry_hash.into())
+}
+
+fn content_type_to_bytes(ct: &ContentType) -> Vec<u8> {
+    match ct {
+        ContentType::Apk => b"Apk".to_vec(),
+        ContentType::AppData => b"AppData".to_vec(),
+        ContentType::Audio => b"Audio".to_vec(),
+        ContentType::Calendar => b"Calendar".to_vec(),
+        ContentType::Contact => b"Contact".to_vec(),
+        ContentType::Document => b"Document".to_vec(),
+        ContentType::Image => b"Image".to_vec(),
+        ContentType::Message => b"Message".to_vec(),
+        ContentType::Video => b"Video".to_vec(),
+        ContentType::Settings => b"Settings".to_vec(),
+        ContentType::Other(s) => format!("Other:{}", s).into_bytes(),
+    }
+}
+
+fn encode_label_tag(label: &str) -> Vec<u8> {
+    if label.len() < 400 {
+        label.as_bytes().to_vec()
+    } else {
+        label.as_bytes()[..400].to_vec()
+    }
 }
 
 #[hdk_extern]
@@ -18,12 +55,30 @@ pub fn create_storage_entry(storage_entry: StorageEntry) -> ExternResult<Record>
             (),
         )?;
     }
+
     create_link(
         get_storage_entry_anchor()?,
         storage_entry_hash.clone(),
         LinkTypes::AllStorageEntries,
         (),
     )?;
+
+    let label_tag = encode_label_tag(&storage_entry.label);
+    create_link(
+        get_label_anchor()?,
+        storage_entry_hash.clone(),
+        LinkTypes::StorageEntryByLabel,
+        LinkTag(label_tag),
+    )?;
+
+    let type_tag = content_type_to_bytes(&storage_entry.content_type);
+    create_link(
+        get_type_anchor()?,
+        storage_entry_hash.clone(),
+        LinkTypes::StorageEntryByType,
+        LinkTag(type_tag),
+    )?;
+
     let record = get(storage_entry_hash.clone(), GetOptions::local())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Could not find the newly created StorageEntry".to_string())
     ))?;
@@ -215,12 +270,42 @@ pub fn update_storage_entry(input: UpdateStorageEntryInput) -> ExternResult<Reco
         input.previous_storage_entry_hash.clone(),
         &input.updated_storage_entry,
     )?;
+
     create_link(
         input.original_storage_entry_hash.clone(),
         updated_storage_entry_hash.clone(),
         LinkTypes::StorageEntryUpdates,
         (),
     )?;
+
+    let label_tag = encode_label_tag(&input.updated_storage_entry.label);
+    let old_label_links = get_links(
+        LinkQuery {
+            base: get_label_anchor()?,
+            link_type: LinkTypes::StorageEntryByLabel.try_into_filter()?,
+            tag_prefix: Some(LinkTag(label_tag.clone())),
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Local,
+    )?;
+
+    for link in old_label_links {
+        if let Some(action_hash) = link.target.into_action_hash() {
+            if action_hash == input.original_storage_entry_hash {
+                delete_link(link.create_link_hash, GetOptions::local())?;
+            }
+        }
+    }
+
+    create_link(
+        get_label_anchor()?,
+        updated_storage_entry_hash.clone(),
+        LinkTypes::StorageEntryByLabel,
+        LinkTag(label_tag),
+    )?;
+
     let record =
         get(updated_storage_entry_hash.clone(), GetOptions::local())?.ok_or(wasm_error!(
             WasmErrorInner::Guest("Could not find the newly updated StorageEntry".to_string())
@@ -540,12 +625,27 @@ pub fn get_file_from_network(storage_entry_hash: ActionHash) -> ExternResult<Opt
 /// The matching StorageEntry record, or `None` if no entry with that label exists.
 #[hdk_extern]
 pub fn get_storage_entry_by_label(label: String) -> ExternResult<Option<Record>> {
-    let all_entries = get_all_storage_entries(())?;
+    let label_tag = encode_label_tag(&label);
+    let links = get_links(
+        LinkQuery {
+            base: get_label_anchor()?,
+            link_type: LinkTypes::StorageEntryByLabel.try_into_filter()?,
+            tag_prefix: Some(LinkTag(label_tag.clone())),
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Local,
+    )?;
 
-    for record in all_entries {
-        if let Some(entry) = record.entry().to_app_option::<StorageEntry>().ok().flatten() {
-            if entry.label == label {
-                return Ok(Some(record));
+    for link in links {
+        if let Some(action_hash) = link.target.clone().into_action_hash() {
+            if let Some(record) = get(action_hash, GetOptions::local())? {
+                if let Some(entry) = record.entry().to_app_option::<StorageEntry>().ok().flatten() {
+                    if entry.label == label {
+                        return Ok(Some(record));
+                    }
+                }
             }
         }
     }
@@ -567,17 +667,84 @@ pub fn get_storage_entry_by_label(label: String) -> ExternResult<Option<Record>>
 /// The matching StorageEntry record, or `None` if no entry with that label exists.
 #[hdk_extern]
 pub fn get_storage_entry_by_label_from_network(label: String) -> ExternResult<Option<Record>> {
-    let all_entries = get_all_storage_entries_from_network(())?;
+    let label_tag = encode_label_tag(&label);
+    let links = get_links(
+        LinkQuery {
+            base: get_label_anchor()?,
+            link_type: LinkTypes::StorageEntryByLabel.try_into_filter()?,
+            tag_prefix: Some(LinkTag(label_tag.clone())),
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Network,
+    )?;
 
-    for record in all_entries {
-        if let Some(entry) = record.entry().to_app_option::<StorageEntry>().ok().flatten() {
-            if entry.label == label {
-                return Ok(Some(record));
+    for link in links {
+        if let Some(action_hash) = link.target.clone().into_action_hash() {
+            if let Some(record) = get(action_hash, GetOptions::network())? {
+                if let Some(entry) = record.entry().to_app_option::<StorageEntry>().ok().flatten() {
+                    if entry.label == label {
+                        return Ok(Some(record));
+                    }
+                }
             }
         }
     }
 
     Ok(None)
+}
+
+#[hdk_extern]
+pub fn get_storage_entries_by_content_type(content_type: ContentType) -> ExternResult<Vec<Record>> {
+    let type_tag = content_type_to_bytes(&content_type);
+    let links = get_links(
+        LinkQuery {
+            base: get_type_anchor()?,
+            link_type: LinkTypes::StorageEntryByType.try_into_filter()?,
+            tag_prefix: Some(LinkTag(type_tag)),
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Local,
+    )?;
+
+    let mut records = Vec::with_capacity(links.len());
+    for link in links {
+        if let Some(action_hash) = link.target.into_action_hash() {
+            if let Some(record) = get(action_hash, GetOptions::local())? {
+                records.push(record);
+            }
+        }
+    }
+    Ok(records)
+}
+
+#[hdk_extern]
+pub fn get_storage_entries_by_content_type_from_network(content_type: ContentType) -> ExternResult<Vec<Record>> {
+    let type_tag = content_type_to_bytes(&content_type);
+    let links = get_links(
+        LinkQuery {
+            base: get_type_anchor()?,
+            link_type: LinkTypes::StorageEntryByType.try_into_filter()?,
+            tag_prefix: Some(LinkTag(type_tag)),
+            before: None,
+            after: None,
+            author: None,
+        },
+        GetStrategy::Network,
+    )?;
+
+    let mut records = Vec::with_capacity(links.len());
+    for link in links {
+        if let Some(action_hash) = link.target.into_action_hash() {
+            if let Some(record) = get(action_hash, GetOptions::network())? {
+                records.push(record);
+            }
+        }
+    }
+    Ok(records)
 }
 
 /// Retrieves a complete file from the DHT by searching for a StorageEntry with the given label.

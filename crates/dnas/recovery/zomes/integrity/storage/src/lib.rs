@@ -19,6 +19,8 @@ pub enum LinkTypes {
     ChunkToStorageEntries,
     StorageEntryUpdates,
     AllStorageEntries,
+    StorageEntryByLabel,
+    StorageEntryByType,
 }
 
 // This is the unified validation callback for all entries and link types in this integrity zome
@@ -102,6 +104,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 target_address,
                 tag,
             ),
+            LinkTypes::StorageEntryByLabel => validate_create_link_storage_entry_by_label(
+                action,
+                base_address,
+                target_address,
+                tag,
+            ),
+            LinkTypes::StorageEntryByType => validate_create_link_storage_entry_by_type(
+                action,
+                base_address,
+                target_address,
+                tag,
+            ),
         },
         FlatOp::RegisterDeleteLink {
             link_type,
@@ -126,6 +140,20 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 tag,
             ),
             LinkTypes::AllStorageEntries => validate_delete_link_all_storage_entries(
+                action,
+                original_action,
+                base_address,
+                target_address,
+                tag,
+            ),
+            LinkTypes::StorageEntryByLabel => validate_delete_link_storage_entry_by_label(
+                action,
+                original_action,
+                base_address,
+                target_address,
+                tag,
+            ),
+            LinkTypes::StorageEntryByType => validate_delete_link_storage_entry_by_type(
                 action,
                 original_action,
                 base_address,
@@ -175,6 +203,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         tag,
                     ),
                     LinkTypes::AllStorageEntries => validate_create_link_all_storage_entries(
+                        action,
+                        base_address,
+                        target_address,
+                        tag,
+                    ),
+                    LinkTypes::StorageEntryByLabel => validate_create_link_storage_entry_by_label(
+                        action,
+                        base_address,
+                        target_address,
+                        tag,
+                    ),
+                    LinkTypes::StorageEntryByType => validate_create_link_storage_entry_by_type(
                         action,
                         base_address,
                         target_address,
