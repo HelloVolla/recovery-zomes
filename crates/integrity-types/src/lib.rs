@@ -3,6 +3,8 @@ pub use serde::{Deserialize, Serialize};
 
 pub mod bundle;
 pub use bundle::*;
+pub mod crypto;
+pub use crypto::*;
 pub mod membrane;
 pub use membrane::*;
 pub mod properties;

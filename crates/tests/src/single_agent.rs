@@ -70,7 +70,6 @@ async fn test_storage_entry_creation() {
 
     // Create storage entry with chunk references
     let storage_entry = StorageEntry {
-        label: "test_file.txt".to_string(),
         content_type: ContentType::Other("text/plain".to_string()),
         size: 6,
         last_modified: Timestamp::now(),
@@ -91,7 +90,6 @@ async fn test_storage_entry_creation() {
     assert!(entry.is_some());
 
     let retrieved_entry = entry.unwrap();
-    assert_eq!(retrieved_entry.label, "test_file.txt");
     assert_eq!(retrieved_entry.size, 6);
     assert_eq!(retrieved_entry.chunk_hashes.len(), 2);
 
@@ -131,7 +129,6 @@ async fn test_get_all_storage_entries() {
 
     // Create first storage entry
     let storage_entry1 = StorageEntry {
-        label: "file1.txt".to_string(),
         content_type: ContentType::Other("text/plain".to_string()),
         size: 3,
         last_modified: Timestamp::now(),
@@ -153,7 +150,6 @@ async fn test_get_all_storage_entries() {
 
     // Create second storage entry
     let storage_entry2 = StorageEntry {
-        label: "file2.bin".to_string(),
         content_type: ContentType::Other("application/octet-stream".to_string()),
         size: 4,
         last_modified: Timestamp::now(),
@@ -192,8 +188,8 @@ async fn test_get_all_storage_entries() {
         println!("  - {:?}", entry);
     }
 
-    assert!(storage_entries.iter().any(|e| e.label == "file1.txt"), "Should contain file1.txt");
-    assert!(storage_entries.iter().any(|e| e.label == "file2.bin"), "Should contain file2.bin");
+    assert!(storage_entries.iter().any(|e| e.size == 3), "Should contain file1.txt");
+    assert!(storage_entries.iter().any(|e| e.size == 4), "Should contain file2.bin");
 }
 
 /// Test file upload and download roundtrip using get_file
@@ -225,7 +221,6 @@ async fn test_file_upload_download_roundtrip() {
 
     // Create storage entry with chunk references
     let storage_entry = StorageEntry {
-        label: "test_roundtrip.bin".to_string(),
         content_type: ContentType::Other("application/octet-stream".to_string()),
         size: test_data.len(),
         last_modified: Timestamp::now(),

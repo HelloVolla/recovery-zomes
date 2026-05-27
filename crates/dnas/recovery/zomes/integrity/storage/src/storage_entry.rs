@@ -1,13 +1,12 @@
 use hdi::prelude::*;
-use integrity_types::{ContentType, ContentMetadata};
+use integrity_types::{ContentType, EncryptedMetadata};
+
 
 /// Main storage entry containing metadata and references to data chunks
 /// All actual data is stored in DataChunk entries, referenced by EntryHash
 #[derive(Clone, PartialEq)]
 #[hdk_entry_helper]
 pub struct StorageEntry {
-    /// Human-readable label for this data
-    pub label: String,
     /// Content type
     pub content_type: ContentType,
     /// Total size in bytes
@@ -16,8 +15,10 @@ pub struct StorageEntry {
     pub last_modified: Timestamp,
     /// Timestamp when the data was collected
     pub timestamp: Timestamp,
-    /// Optional strongly-typed metadata for specific content types
-    pub metadata: Option<ContentMetadata>,
+    /// Optional strongly-typed metadata for specific content types.
+    /// Encrypted with XChaCha20-Poly1305 using the owner's Android Keystore key.
+    pub metadata: Option<EncryptedMetadata>,
+
     /// Ordered list of chunk hashes that make up the complete data
     pub chunk_hashes: Vec<EntryHash>,
 }
@@ -99,25 +100,6 @@ pub fn validate_create_link_all_storage_entries(
 }
 
 pub fn validate_delete_link_all_storage_entries(
-    _action: DeleteLink,
-    _original_action: CreateLink,
-    _base: AnyLinkableHash,
-    _target: AnyLinkableHash,
-    _tag: LinkTag,
-) -> ExternResult<ValidateCallbackResult> {
-    Ok(ValidateCallbackResult::Valid)
-}
-
-pub fn validate_create_link_storage_entry_by_label(
-    _action: CreateLink,
-    _base_address: AnyLinkableHash,
-    _target_address: AnyLinkableHash,
-    _tag: LinkTag,
-) -> ExternResult<ValidateCallbackResult> {
-    Ok(ValidateCallbackResult::Valid)
-}
-
-pub fn validate_delete_link_storage_entry_by_label(
     _action: DeleteLink,
     _original_action: CreateLink,
     _base: AnyLinkableHash,
