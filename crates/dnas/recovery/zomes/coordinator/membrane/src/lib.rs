@@ -123,5 +123,6 @@ pub fn generate_invite_code(input: GenerateInviteCodeInput) -> ExternResult<Invi
         dna_hash,
         seed_array.as_ref(),
         input.for_agent_pub_key,
+        input.display_name,
     )
 }

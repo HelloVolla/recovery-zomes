@@ -8,6 +8,9 @@ pub struct GenerateInviteCodeInput {
     /// If provided, a membrane proof will be generated and included in the invite code.
     #[serde(with = "serde_bytes")]
     pub for_agent_pub_key: Option<Vec<u8>>,
+    /// Display name of the inviter to include in the invite code.
+    #[serde(default)]
+    pub display_name: Option<String>,
 }
 
 /// Input for creating an invite code in the registry zome
@@ -45,6 +48,10 @@ pub struct InviteCode {
     /// The membrane proof bytes (MessagePack-encoded MembraneProofEnvelope)
     #[serde(with = "serde_bytes")]
     pub membrane_proof: Option<Vec<u8>>,
+    /// The display name of the inviter, included so the joining device can
+    /// automatically set the friend's name.
+    #[serde(default)]
+    pub display_name: Option<String>,
 }
 
 impl InviteCode {
@@ -73,6 +80,7 @@ impl InviteCode {
         dna_hash: Vec<u8>,
         signing_key_seed: Option<&[u8; 32]>,
         for_agent_pub_key: Option<Vec<u8>>,
+        display_name: Option<String>,
     ) -> ExternResult<Self> {
         let mut membrane_proof_bytes = None;
 
@@ -102,6 +110,7 @@ impl InviteCode {
             network_pub_key,
             dna_hash,
             membrane_proof: membrane_proof_bytes,
+            display_name,
         })
     }
 
