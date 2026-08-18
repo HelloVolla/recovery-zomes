@@ -44,27 +44,39 @@ pub enum LinkTypes {
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, action } => match app_entry {
-                EntryTypes::RegistryMember(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::MemberStatusEntry(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::StorageBundle(bundle) => {
-                    validate_create_storage_bundle_info(EntryCreationAction::Create(action), bundle)
+        FlatOp::CreateEntry(op_entry) => match op_entry {
+            OpEntry::CreateEntry { app_entry, action } => {
+                let action = TypedAction {
+                    header: action.header,
+                    data: EntryCreationData::Create(action.data),
+                };
+                match app_entry {
+                    EntryTypes::RegistryMember(_) => Ok(ValidateCallbackResult::Valid),
+                    EntryTypes::MemberStatusEntry(_) => Ok(ValidateCallbackResult::Valid),
+                    EntryTypes::StorageBundle(bundle) => {
+                        validate_create_storage_bundle_info(action, bundle)
+                    }
+                    EntryTypes::BundleMember(member) => {
+                        validate_create_bundle_member(action, member)
+                    }
                 }
-                EntryTypes::BundleMember(member) => {
-                    validate_create_bundle_member(EntryCreationAction::Create(action), member)
+            }
+            OpEntry::UpdateEntry { app_entry, action } => {
+                let action = TypedAction {
+                    header: action.header,
+                    data: EntryCreationData::Update(action.data),
+                };
+                match app_entry {
+                    EntryTypes::RegistryMember(_) => Ok(ValidateCallbackResult::Valid),
+                    EntryTypes::MemberStatusEntry(_) => Ok(ValidateCallbackResult::Valid),
+                    EntryTypes::StorageBundle(bundle) => {
+                        validate_create_storage_bundle_info(action, bundle)
+                    }
+                    EntryTypes::BundleMember(member) => {
+                        validate_create_bundle_member(action, member)
+                    }
                 }
-            },
-            OpEntry::UpdateEntry { app_entry, action, .. } => match app_entry {
-                EntryTypes::RegistryMember(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::MemberStatusEntry(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::StorageBundle(bundle) => {
-                    validate_create_storage_bundle_info(EntryCreationAction::Update(action), bundle)
-                }
-                EntryTypes::BundleMember(member) => {
-                    validate_create_bundle_member(EntryCreationAction::Update(action), member)
-                }
-            },
+            }
             _ => Ok(ValidateCallbackResult::Valid),
         },
         _ => Ok(ValidateCallbackResult::Valid),

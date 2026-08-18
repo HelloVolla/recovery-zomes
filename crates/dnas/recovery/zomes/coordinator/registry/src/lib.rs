@@ -72,7 +72,7 @@ fn emit_local_and_remote_signal(signal: &Signal) -> ExternResult<()> {
 }
 
 fn signal_action(action: SignedActionHashed) -> ExternResult<()> {
-    let Action::Create(create_action) = action.action() else {
+    let ActionData::Create(create_action) = &action.action().data else {
         return Ok(());
     };
 

@@ -14,7 +14,7 @@ pub struct BundleMember {
 }
 
 pub fn validate_create_bundle_member(
-    _action: EntryCreationAction,
+    _action: TypedAction<EntryCreationData>,
     member: BundleMember,
 ) -> ExternResult<ValidateCallbackResult> {
     if member.network_seed.is_empty() {

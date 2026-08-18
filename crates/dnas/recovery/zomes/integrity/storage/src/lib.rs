@@ -43,30 +43,34 @@ pub enum LinkTypes {
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, action } => match app_entry {
-                EntryTypes::Chunk(chunk) => {
-                    validate_create_chunk(EntryCreationAction::Create(action), chunk)
+        FlatOp::CreateEntry(op_entry) => match op_entry {
+            OpEntry::CreateEntry { app_entry, action } => {
+                let action = TypedAction {
+                    header: action.header,
+                    data: EntryCreationData::Create(action.data),
+                };
+                match app_entry {
+                    EntryTypes::Chunk(chunk) => validate_create_chunk(action, chunk),
+                    EntryTypes::StorageEntry(storage_entry) => {
+                        validate_create_storage_entry(action, storage_entry)
+                    }
                 }
-                EntryTypes::StorageEntry(storage_entry) => validate_create_storage_entry(
-                    EntryCreationAction::Create(action),
-                    storage_entry,
-                ),
-            },
-            OpEntry::UpdateEntry {
-                app_entry, action, ..
-            } => match app_entry {
-                EntryTypes::Chunk(chunk) => {
-                    validate_create_chunk(EntryCreationAction::Update(action), chunk)
+            }
+            OpEntry::UpdateEntry { app_entry, action } => {
+                let action = TypedAction {
+                    header: action.header,
+                    data: EntryCreationData::Update(action.data),
+                };
+                match app_entry {
+                    EntryTypes::Chunk(chunk) => validate_create_chunk(action, chunk),
+                    EntryTypes::StorageEntry(storage_entry) => {
+                        validate_create_storage_entry(action, storage_entry)
+                    }
                 }
-                EntryTypes::StorageEntry(storage_entry) => validate_create_storage_entry(
-                    EntryCreationAction::Update(action),
-                    storage_entry,
-                ),
-            },
+            }
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterUpdate(update_entry) => match update_entry {
+        FlatOp::Update(update_entry) => match update_entry {
             OpUpdate::Entry { app_entry, .. } => match app_entry {
                 EntryTypes::Chunk(_) => {
                     Ok(ValidateCallbackResult::Invalid(
@@ -77,87 +81,63 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterCreateLink {
-            link_type,
-            base_address,
-            target_address,
-            tag,
-            action,
-        } => match link_type {
-            LinkTypes::ChunkToStorageEntries => validate_create_link_chunk_to_storage_entries(
-                action,
-                base_address,
-                target_address,
-                tag,
-            ),
-            LinkTypes::StorageEntryUpdates => validate_create_link_storage_entry_updates(
-                action,
-                base_address,
-                target_address,
-                tag,
-            ),
-            LinkTypes::AllStorageEntries => validate_create_link_all_storage_entries(
-                action,
-                base_address,
-                target_address,
-                tag,
-            ),
-            LinkTypes::StorageEntryByType => validate_create_link_storage_entry_by_type(
-                action,
-                base_address,
-                target_address,
-                tag,
-            ),
-        },
-        FlatOp::RegisterDeleteLink {
-            link_type,
-            base_address,
-            target_address,
-            tag,
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::CreateLink { link_type, action }) => {
+            let base_address = action.base_address.clone();
+            let target_address = action.target_address.clone();
+            let tag = action.tag.clone();
+            match link_type {
+                LinkTypes::ChunkToStorageEntries => validate_create_link_chunk_to_storage_entries(
+                    action, base_address, target_address, tag,
+                ),
+                LinkTypes::StorageEntryUpdates => validate_create_link_storage_entry_updates(
+                    action, base_address, target_address, tag,
+                ),
+                LinkTypes::AllStorageEntries => validate_create_link_all_storage_entries(
+                    action, base_address, target_address, tag,
+                ),
+                LinkTypes::StorageEntryByType => validate_create_link_storage_entry_by_type(
+                    action, base_address, target_address, tag,
+                ),
+            }
+        }
+        FlatOp::Link(OpLink::DeleteLink {
             original_action,
+            link_type,
             action,
-        } => match link_type {
-            LinkTypes::ChunkToStorageEntries => validate_delete_link_chunk_to_storage_entries(
-                action,
-                original_action,
-                base_address,
-                target_address,
-                tag,
-            ),
-            LinkTypes::StorageEntryUpdates => validate_delete_link_storage_entry_updates(
-                action,
-                original_action,
-                base_address,
-                target_address,
-                tag,
-            ),
-            LinkTypes::AllStorageEntries => validate_delete_link_all_storage_entries(
-                action,
-                original_action,
-                base_address,
-                target_address,
-                tag,
-            ),
-            LinkTypes::StorageEntryByType => validate_delete_link_storage_entry_by_type(
-                action,
-                original_action,
-                base_address,
-                target_address,
-                tag,
-            ),
-        },
-        FlatOp::StoreRecord(store_record) => {
+        }) => {
+            let base_address = original_action.base_address.clone();
+            let target_address = original_action.target_address.clone();
+            let tag = original_action.tag.clone();
+            match link_type {
+                LinkTypes::ChunkToStorageEntries => validate_delete_link_chunk_to_storage_entries(
+                    action, original_action, base_address, target_address, tag,
+                ),
+                LinkTypes::StorageEntryUpdates => validate_delete_link_storage_entry_updates(
+                    action, original_action, base_address, target_address, tag,
+                ),
+                LinkTypes::AllStorageEntries => validate_delete_link_all_storage_entries(
+                    action, original_action, base_address, target_address, tag,
+                ),
+                LinkTypes::StorageEntryByType => validate_delete_link_storage_entry_by_type(
+                    action, original_action, base_address, target_address, tag,
+                ),
+            }
+        }
+        FlatOp::CreateRecord(store_record) => {
             match store_record {
-                OpRecord::CreateEntry { app_entry, action } => match app_entry {
-                    EntryTypes::Chunk(chunk) => {
-                        validate_create_chunk(EntryCreationAction::Create(action), chunk)
+                OpRecord::CreateEntry { app_entry, action } => {
+                    let action = TypedAction {
+                        header: action.header,
+                        data: EntryCreationData::Create(action.data),
+                    };
+                    match app_entry {
+                        EntryTypes::Chunk(chunk) => validate_create_chunk(action, chunk),
+                        EntryTypes::StorageEntry(storage_entry) => {
+                            validate_create_storage_entry(action, storage_entry)
+                        }
                     }
-                    EntryTypes::StorageEntry(storage_entry) => validate_create_storage_entry(
-                        EntryCreationAction::Create(action),
-                        storage_entry,
-                    ),
-                },
+                }
                 OpRecord::UpdateEntry { app_entry, .. } => match app_entry {
                     EntryTypes::Chunk(_) => {
                         Ok(ValidateCallbackResult::Invalid(
@@ -167,44 +147,37 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     _ => Ok(ValidateCallbackResult::Valid),
                 },
                 OpRecord::DeleteEntry { .. } => Ok(ValidateCallbackResult::Valid),
-                OpRecord::CreateLink {
-                    base_address,
-                    target_address,
-                    tag,
-                    link_type,
-                    action,
-                } => match link_type {
-                    LinkTypes::ChunkToStorageEntries => {
-                        validate_create_link_chunk_to_storage_entries(
-                            action,
-                            base_address,
-                            target_address,
-                            tag,
-                        )
+                OpRecord::CreateLink { link_type, action } => {
+                    let base_address = action.base_address.clone();
+                    let target_address = action.target_address.clone();
+                    let tag = action.tag.clone();
+                    match link_type {
+                        LinkTypes::ChunkToStorageEntries => {
+                            validate_create_link_chunk_to_storage_entries(
+                                action, base_address, target_address, tag,
+                            )
+                        }
+                        LinkTypes::StorageEntryUpdates => {
+                            validate_create_link_storage_entry_updates(
+                                action, base_address, target_address, tag,
+                            )
+                        }
+                        LinkTypes::AllStorageEntries => {
+                            validate_create_link_all_storage_entries(
+                                action, base_address, target_address, tag,
+                            )
+                        }
+                        LinkTypes::StorageEntryByType => {
+                            validate_create_link_storage_entry_by_type(
+                                action, base_address, target_address, tag,
+                            )
+                        }
                     }
-                    LinkTypes::StorageEntryUpdates => validate_create_link_storage_entry_updates(
-                        action,
-                        base_address,
-                        target_address,
-                        tag,
-                    ),
-                    LinkTypes::AllStorageEntries => validate_create_link_all_storage_entries(
-                        action,
-                        base_address,
-                        target_address,
-                        tag,
-                    ),
-                    LinkTypes::StorageEntryByType => validate_create_link_storage_entry_by_type(
-                        action,
-                        base_address,
-                        target_address,
-                        tag,
-                    ),
-                },
+                }
                 OpRecord::DeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
                 _ => Ok(ValidateCallbackResult::Valid),
             }
         }
-        FlatOp::RegisterAgentActivity(_agent_activity) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::AgentActivity(_agent_activity) => Ok(ValidateCallbackResult::Valid),
     }
 }

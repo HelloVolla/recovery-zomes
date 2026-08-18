@@ -146,7 +146,7 @@ pub fn validate_agent_joining(
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(op_entry) => match op_entry {
             OpEntry::CreateEntry { app_entry, .. } => match app_entry {
                 EntryTypes::PrivateSigningKeyEntry(_) => Ok(ValidateCallbackResult::Valid),
             },
@@ -155,16 +155,16 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterUpdate(update_entry) => match update_entry {
+        FlatOp::Update(update_entry) => match update_entry {
             OpUpdate::Entry { app_entry, .. } => match app_entry {
                 EntryTypes::PrivateSigningKeyEntry(_) => Ok(ValidateCallbackResult::Valid),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterCreateLink { .. } => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
-        FlatOp::StoreRecord(store_record) => {
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::CreateLink { .. }) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::DeleteLink { .. }) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(store_record) => {
             match store_record {
                 OpRecord::CreateEntry { app_entry, .. } => match app_entry {
                     EntryTypes::PrivateSigningKeyEntry(_) => Ok(ValidateCallbackResult::Valid),
@@ -188,21 +188,26 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 _ => Ok(ValidateCallbackResult::Valid),
             }
         }
-        FlatOp::RegisterAgentActivity(agent_activity) => match agent_activity {
+        FlatOp::AgentActivity(agent_activity) => match agent_activity {
             OpActivity::CreateAgent { agent, action } => {
-                let previous_action = must_get_action(action.prev_action)?;
-                match previous_action.action() {
-                    Action::AgentValidationPkg(
-                        AgentValidationPkg { membrane_proof, .. },
-                    ) => validate_agent_joining(agent, membrane_proof),
-                    _ => {
-                        Ok(
-                            ValidateCallbackResult::Invalid(
-                                "The previous action for a `CreateAgent` action must be an `AgentValidationPkg`"
-                                    .to_string(),
-                            ),
-                        )
-                    }
+                let prev = action
+                    .prev_action()
+                    .ok_or_else(|| {
+                        wasm_error!(WasmErrorInner::Guest(
+                            "expected a prior action before CreateAgent".into()
+                        ))
+                    })?
+                    .clone();
+                let previous_action = must_get_action(prev)?;
+                match &previous_action.action().data {
+                    ActionData::AgentValidationPkg(AgentValidationPkgData {
+                        membrane_proof,
+                        ..
+                    }) => validate_agent_joining(agent, membrane_proof),
+                    _ => Ok(ValidateCallbackResult::Invalid(
+                        "The previous action for a `CreateAgent` action must be an `AgentValidationPkg`"
+                            .to_string(),
+                    )),
                 }
             }
             _ => Ok(ValidateCallbackResult::Valid),

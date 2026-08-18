@@ -24,16 +24,16 @@ pub struct StorageEntry {
 }
 
 pub fn validate_create_storage_entry(
-    _action: EntryCreationAction,
+    _action: TypedAction<EntryCreationData>,
     _storage_entry: StorageEntry,
 ) -> ExternResult<ValidateCallbackResult> {
     Ok(ValidateCallbackResult::Valid)
 }
 
 pub fn validate_update_storage_entry(
-    _action: Update,
+    _action: TypedAction<UpdateData>,
     _storage_entry: StorageEntry,
-    _original_action: EntryCreationAction,
+    _original_action: TypedAction<EntryCreationData>,
     _original_storage_entry: StorageEntry,
 ) -> ExternResult<ValidateCallbackResult> {
     // TODO: add the appropriate validation rules
@@ -41,8 +41,8 @@ pub fn validate_update_storage_entry(
 }
 
 pub fn validate_delete_storage_entry(
-    _action: Delete,
-    _original_action: EntryCreationAction,
+    _action: TypedAction<DeleteData>,
+    _original_action: TypedAction<EntryCreationData>,
     _original_storage_entry: StorageEntry,
 ) -> ExternResult<ValidateCallbackResult> {
     // TODO: add the appropriate validation rules
@@ -50,7 +50,7 @@ pub fn validate_delete_storage_entry(
 }
 
 pub fn validate_create_link_chunk_to_storage_entries(
-    _action: CreateLink,
+    _action: TypedAction<CreateLinkData>,
     _base_address: AnyLinkableHash,
     _target_address: AnyLinkableHash,
     _tag: LinkTag,
@@ -59,8 +59,8 @@ pub fn validate_create_link_chunk_to_storage_entries(
 }
 
 pub fn validate_delete_link_chunk_to_storage_entries(
-    _action: DeleteLink,
-    _original_action: CreateLink,
+    _action: TypedAction<DeleteLinkData>,
+    _original_action: TypedAction<CreateLinkData>,
     _base: AnyLinkableHash,
     _target: AnyLinkableHash,
     _tag: LinkTag,
@@ -70,7 +70,7 @@ pub fn validate_delete_link_chunk_to_storage_entries(
 }
 
 pub fn validate_create_link_storage_entry_updates(
-    _action: CreateLink,
+    _action: TypedAction<CreateLinkData>,
     _base_address: AnyLinkableHash,
     _target_address: AnyLinkableHash,
     _tag: LinkTag,
@@ -79,8 +79,8 @@ pub fn validate_create_link_storage_entry_updates(
 }
 
 pub fn validate_delete_link_storage_entry_updates(
-    _action: DeleteLink,
-    _original_action: CreateLink,
+    _action: TypedAction<DeleteLinkData>,
+    _original_action: TypedAction<CreateLinkData>,
     _base: AnyLinkableHash,
     _target: AnyLinkableHash,
     _tag: LinkTag,
@@ -91,7 +91,7 @@ pub fn validate_delete_link_storage_entry_updates(
 }
 
 pub fn validate_create_link_all_storage_entries(
-    _action: CreateLink,
+    _action: TypedAction<CreateLinkData>,
     _base_address: AnyLinkableHash,
     _target_address: AnyLinkableHash,
     _tag: LinkTag,
@@ -100,8 +100,8 @@ pub fn validate_create_link_all_storage_entries(
 }
 
 pub fn validate_delete_link_all_storage_entries(
-    _action: DeleteLink,
-    _original_action: CreateLink,
+    _action: TypedAction<DeleteLinkData>,
+    _original_action: TypedAction<CreateLinkData>,
     _base: AnyLinkableHash,
     _target: AnyLinkableHash,
     _tag: LinkTag,
@@ -110,7 +110,7 @@ pub fn validate_delete_link_all_storage_entries(
 }
 
 pub fn validate_create_link_storage_entry_by_type(
-    _action: CreateLink,
+    _action: TypedAction<CreateLinkData>,
     _base_address: AnyLinkableHash,
     _target_address: AnyLinkableHash,
     _tag: LinkTag,
@@ -119,8 +119,8 @@ pub fn validate_create_link_storage_entry_by_type(
 }
 
 pub fn validate_delete_link_storage_entry_by_type(
-    _action: DeleteLink,
-    _original_action: CreateLink,
+    _action: TypedAction<DeleteLinkData>,
+    _original_action: TypedAction<CreateLinkData>,
     _base: AnyLinkableHash,
     _target: AnyLinkableHash,
     _tag: LinkTag,

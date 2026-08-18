@@ -5,7 +5,7 @@ use hdi::prelude::*;
 pub struct Chunk(pub SerializedBytes);
 
 pub fn validate_create_chunk(
-    _action: EntryCreationAction,
+    _action: TypedAction<EntryCreationData>,
     _chunk: Chunk,
 ) -> ExternResult<ValidateCallbackResult> {
     let chunk = _chunk.0;
@@ -19,9 +19,9 @@ pub fn validate_create_chunk(
 }
 
 pub fn validate_update_chunk(
-    _action: Update,
+    _action: TypedAction<UpdateData>,
     _chunk: Chunk,
-    _original_action: EntryCreationAction,
+    _original_action: TypedAction<EntryCreationData>,
     _original_chunk: Chunk,
 ) -> ExternResult<ValidateCallbackResult> {
     Ok(ValidateCallbackResult::Invalid(
@@ -30,8 +30,8 @@ pub fn validate_update_chunk(
 }
 
 pub fn validate_delete_chunk(
-    _action: Delete,
-    _original_action: EntryCreationAction,
+    _action: TypedAction<DeleteData>,
+    _original_action: TypedAction<EntryCreationData>,
     _original_chunk: Chunk,
 ) -> ExternResult<ValidateCallbackResult> {
     Ok(ValidateCallbackResult::Valid)

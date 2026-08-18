@@ -15,7 +15,7 @@ hdk = { workspace = true }
 storage_integrity = { workspace = true, optional = true }
 membrane_integrity = { workspace = true, optional = true }
 shared_types = { workspace = true }
-serde_yaml = "0.9"
+yaml_serde = { workspace = true }
 ed25519-dalek = { version = "2", features = ["rand_core"] }
 rand = "0.8"
 

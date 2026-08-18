@@ -184,7 +184,7 @@ async fn setup_registry_single_agent(
         progenitor_pub_key: agent.clone(),
         network_pub_key: signing_key.verifying_key().to_bytes().to_vec(),
     };
-    let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
+    let yaml_properties = YamlProperties::new(yaml_serde::to_value(&properties).unwrap());
 
     let dna = SweetDnaFile::from_bundle(&dna_path())
         .await

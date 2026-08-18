@@ -15,7 +15,7 @@ pub struct StorageBundle {
 }
 
 pub fn validate_create_storage_bundle_info(
-    _action: EntryCreationAction,
+    _action: TypedAction<EntryCreationData>,
     bundle_info: StorageBundle,
 ) -> ExternResult<ValidateCallbackResult> {
     if bundle_info.network_seed.is_empty() {

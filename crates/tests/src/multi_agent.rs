@@ -59,7 +59,7 @@ async fn test_multi_agent_membrane_proof_connection() {
         progenitor_pub_key: agents[0].clone(),
         network_pub_key: signing_key.verifying_key().to_bytes().to_vec(),
     };
-    let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
+    let yaml_properties = YamlProperties::new(yaml_serde::to_value(&properties).unwrap());
 
     // Load the DNA from the bundle path and configure it with network seed
     let dna = SweetDnaFile::from_bundle(&dna_path())
@@ -212,7 +212,7 @@ async fn test_membrane_proof_required_for_non_progenitor() {
         progenitor_pub_key: agents[0].clone(),
         network_pub_key: signing_key.verifying_key().to_bytes().to_vec(),
     };
-    let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
+    let yaml_properties = YamlProperties::new(yaml_serde::to_value(&properties).unwrap());
 
     // Load the DNA and configure it with network seed
     let dna = SweetDnaFile::from_bundle(&dna_path())
@@ -305,7 +305,7 @@ async fn test_remote_call_without_cap_grant_fails() {
         progenitor_pub_key: agents[0].clone(),
         network_pub_key: signing_key.verifying_key().to_bytes().to_vec(),
     };
-    let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
+    let yaml_properties = YamlProperties::new(yaml_serde::to_value(&properties).unwrap());
 
     // Load the DNA from the bundle path and configure it with network seed
     let dna = SweetDnaFile::from_bundle(&dna_path())
@@ -460,7 +460,7 @@ async fn test_remote_call_with_unrestricted_cap_grant_succeeds() {
         progenitor_pub_key: agents[0].clone(),
         network_pub_key: signing_key.verifying_key().to_bytes().to_vec(),
     };
-    let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
+    let yaml_properties = YamlProperties::new(yaml_serde::to_value(&properties).unwrap());
 
     // Load the DNA from the bundle path and configure it with network seed
     let dna = SweetDnaFile::from_bundle(&dna_path())
@@ -626,7 +626,7 @@ async fn test_agent_join_verification_via_profile() {
         progenitor_pub_key: agents[0].clone(),
         network_pub_key: signing_key.verifying_key().to_bytes().to_vec(),
     };
-    let yaml_properties = YamlProperties::new(serde_yaml::to_value(&properties).unwrap());
+    let yaml_properties = YamlProperties::new(yaml_serde::to_value(&properties).unwrap());
 
     // Load the DNA from the bundle path and configure it with network seed
     let dna = SweetDnaFile::from_bundle(&dna_path())
