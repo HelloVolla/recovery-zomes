@@ -1,0 +1,61 @@
+---
+name: Build hApp
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install nix
+        uses: cachix/install-nix-action@v27
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          nix_path: nixpkgs=channel:nixos-24.05
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: holochain-ci
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: darksoil-studio
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            crates -> crates/target
+          key: wasm32-unknown-unknown
+
+      - name: Build zomes and package hApp
+        run: nix develop --no-update-lock-file --command ./scripts/package.sh
+
+      - name: Print DNA hash
+        run: |
+          nix develop --no-update-lock-file --command \
+            hc dna hash crates/dnas/recovery/workdir/volla_recovery.dna
+
+      - name: Upload hApp artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: volla_recovery-happ
+          path: workdir/volla_recovery.happ
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: workdir/volla_recovery.happ
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

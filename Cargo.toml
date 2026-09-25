@@ -1,0 +1,55 @@
+[workspace]
+members = [
+    "crates/integrity-types",
+    "crates/shared-types",
+    "crates/tests",
+    "crates/dnas/*/zomes/coordinator/*",
+    "crates/dnas/*/zomes/integrity/*",
+]
+
+default-members = [
+    "crates/dnas/*/zomes/coordinator/*",
+    "crates/dnas/*/zomes/integrity/*",
+]
+
+resolver = "2"
+
+[workspace.dependencies]
+hdi = "0.8.0"
+hdk = "0.7.0"
+serde = "1.0"
+serde_bytes = "0.11"
+rmp-serde = "1.3"
+holochain = "0.7.0"
+holochain_serialized_bytes = "0.0.57"
+yaml_serde = "0.10"
+ed25519-dalek = { version = "2", default-features = false }
+base64 = "0.22.1"
+tokio = "1.27"
+
+shared_types = { path = "crates/shared-types" }
+integrity_types = { path = "crates/integrity-types" }
+
+[workspace.dependencies.storage_integrity]
+path = "crates/dnas/recovery/zomes/integrity/storage"
+
+[workspace.dependencies.registry_integrity]
+path = "crates/dnas/recovery/zomes/integrity/registry"
+
+[workspace.dependencies.membrane_integrity]
+path = "crates/dnas/recovery/zomes/integrity/membrane"
+
+[workspace.package]
+rust-version = "1.95.0"
+version = "0.1.0-alpha"
+
+# These profiles MUST stay in sync with every consumer that packages the DNA.
+# A cargo profile living in a dependency's workspace root is ignored by the
+# consuming build; a different profile produces different wasm bytes, which
+# changes the DnaHash. See README "Reproducible DNA".
+[profile.release]
+lto = true
+opt-level = "z"
+
+[profile.release.build-override]
+opt-level = "z"

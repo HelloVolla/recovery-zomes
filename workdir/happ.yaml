@@ -1,0 +1,15 @@
+---
+manifest_version: "0"
+name: volla_recovery
+description: ~
+roles:
+  - name: volla_recovery
+    provisioning:
+      strategy: create
+      deferred: false
+    dna:
+      path: "../crates/dnas/recovery/workdir/volla_recovery.dna"
+      modifiers:
+        network_seed: ~
+        properties: ~
+      clone_limit: 100

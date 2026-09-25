@@ -16,7 +16,7 @@ storage_integrity = { workspace = true, optional = true }
 membrane_integrity = { workspace = true, optional = true }
 shared_types = { workspace = true }
 yaml_serde = { workspace = true }
-ed25519-dalek = { version = "2", features = ["rand_core"] }
+ed25519-dalek = { workspace = true, features = ["rand_core"] }
 rand = "0.8"
 
 [features]
